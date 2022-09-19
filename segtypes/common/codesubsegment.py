@@ -4,6 +4,7 @@ import spimdisasm
 import rabbitizer
 
 from segtypes.segment import Segment
+from segtypes import segment
 from util.symbols import Symbol
 from util import symbols
 
@@ -34,6 +35,41 @@ class CommonSegCodeSubsegment(Segment):
         rabbitizer.InstrId.cpu_sb,
         rabbitizer.InstrId.cpu_lbu,
     ]
+    def __init__(
+        self,
+        rom_start,
+        rom_end,
+        type,
+        name,
+        vram_start,
+        extract,
+        given_subalign,
+        exclusive_ram_id,
+        given_dir,
+        symbol_name_format,
+        symbol_name_format_no_rom,
+        args,
+        yaml,
+    ):
+        vram = segment.parse_segment_vram(yaml)
+        if vram is not None:
+            vram_start = vram
+
+        super().__init__(
+            rom_start,
+            rom_end,
+            type,
+            name,
+            vram_start,
+            extract,
+            given_subalign,
+            exclusive_ram_id=exclusive_ram_id,
+            given_dir=given_dir,
+            symbol_name_format=symbol_name_format,
+            symbol_name_format_no_rom=symbol_name_format_no_rom,
+            args=args,
+            yaml=yaml,
+        )
 
     @property
     def needs_symbols(self) -> bool:
