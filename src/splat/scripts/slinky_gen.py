@@ -6,8 +6,11 @@ from typing import List, Optional
 
 from . import split
 from ..util import options
+from ..segtypes.segment import Segment
 from ..segtypes.common.group import CommonSegGroup
 from ..segtypes.common.data import CommonSegData
+from ..segtypes.common.pad import CommonSegPad
+from ..segtypes.n64.linker_offset import N64SegLinker_offset
 
 
 def main(
@@ -30,18 +33,50 @@ def main(
 
     for segment in all_segments:
         print(segment)
-        name = segment.name
+        name = segment.name.replace("/", "_")
         if name[0] in "0123456789":
             name = "_" + name
         out.append(f"  - name: {name}")
 
+        base_section_type = segment.section_order
+
         out.append(f"    files:")
         if isinstance(segment, CommonSegGroup):
-            for sub in segment.subsegments:
-                print("   ", sub)
-                if sub.get_linker_section_order() == ".data":
-                    for x in sub.get_linker_entries():
+            files: List[Segment] = []
+            if len(segment.subsegments) == 1:
+                print("   ", segment.subsegments[0])
+                files = [segment.subsegments[0]]
+            else:
+                for sub in segment.subsegments:
+                    print("   ", sub)
+                    if isinstance(sub, (CommonSegPad, N64SegLinker_offset)):
+                        files.append(sub)
+                    elif sub.get_linker_section_order() == base_section_type[0]:
+                        files.append(sub)
+                    else:
+                        found = False
+                        for i, aux_file in enumerate(files[::-1]):
+                            if aux_file.name == sub.name:
+                                found = True
+                                if not sub.type.startswith("."):
+                                    files.insert(len(files)-i, sub)
+                                break
+
+                        if not found:
+                            files.append(sub)
+
+            prev_file: Optional[Segment] = None
+            for file in files:
+                if isinstance(file, CommonSegPad):
+                    assert prev_file is not None
+                    out.append(f"      - {{ kind: pad, pad_amount: 0x{file.size:X}, section: {prev_file.get_linker_section_order()} }}")
+                elif isinstance(file, N64SegLinker_offset):
+                    assert prev_file is not None
+                    out.append(f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {prev_file.get_linker_section_order()} }}")
+                else:
+                    for x in file.get_linker_entries():
                         out.append(f"      - {{ path: {x.object_path} }}")
+                prev_file = file
         else:
             for x in segment.get_linker_entries():
                 out.append(f"      - {{ path: {x.object_path} }}")
