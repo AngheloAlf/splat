@@ -115,7 +115,7 @@ def main(
         elif segment.vram_start is not None:
             out.append(f"    fixed_vram: 0x{segment.vram_start:08X}")
 
-        base_section_type = segment.section_order
+        base_section_type = segment.section_order[0]
 
         out.append(f"    files:")
         if isinstance(segment, CommonSegGroup):
@@ -127,26 +127,43 @@ def main(
                 prev_index_unknown: Optional[int] = None
                 for i, sub in enumerate(segment.subsegments):
                     print("   ", i, sub)
+
+                    # These are special, add them as-is
                     if isinstance(sub, (CommonSegPad, N64SegLinker_offset)):
                         files.append(sub)
-                    elif sub.get_linker_section_order() == base_section_type[0]:
+                    elif sub.get_linker_section_order() == base_section_type:
                         files.append(sub)
                     else:
                         found = False
+                        base_section_type_valid = False
                         for j, aux_file in enumerate(files[::-1]):
                             if aux_file.name == sub.name:
                                 found = True
 
-                                if prev_index_unknown is not None:
-                                    # Rescue all the subsegments that we didn't know where to put
-                                    for missed_sub in segment.subsegments[prev_index_unknown:i]:
+                                if aux_file.get_linker_section_order() == base_section_type:
+                                    if prev_index_unknown is not None:
+                                        # Rescue all the subsegments that we didn't know where to put
                                         print("        inserting missed stuff", prev_index_unknown, i)
-                                        files.insert(len(files)-j-1, missed_sub)
-                                    prev_index_unknown = None
+                                        for missed_sub in segment.subsegments[prev_index_unknown:i]:
+                                            files.insert(len(files)-j-1, missed_sub)
+                                        prev_index_unknown = None
 
-                                if not sub.type.startswith("."):
-                                    files.insert(len(files)-j, sub)
-                                break
+                                    if not sub.type.startswith("."):
+                                        files.insert(len(files)-j, sub)
+                                    base_section_type_valid = True
+
+                                    break
+
+                        if found and not base_section_type_valid:
+                            if prev_index_unknown is not None:
+                                # Do not insert the segments here, we may break stuff.
+                                # I guess we could just append them at the end instead
+                                print("        appending missed stuff", prev_index_unknown, i)
+                                for missed_sub in segment.subsegments[prev_index_unknown:i]:
+                                    files.append(missed_sub)
+                                prev_index_unknown = None
+                            if not sub.type.startswith("."):
+                                files.append(sub)
 
                         # Oy noy, we don't know where to put this.
                         if not found:
