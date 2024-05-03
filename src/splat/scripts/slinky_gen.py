@@ -31,12 +31,23 @@ def main(
 
     out.append("segments:")
 
+    prev_seg: Optional[Segment] = None
     for segment in all_segments:
         print(segment)
         name = segment.name.replace("/", "_")
         if name[0] in "0123456789":
             name = "_" + name
         out.append(f"  - name: {name}")
+
+        if segment.vram_class is not None:
+            out.append(f"    vram_class: {segment.vram_class.name}")
+        elif segment.given_follows_vram is not None:
+            if prev_seg is not None and segment.given_follows_vram != prev_seg.name:
+                out.append(f"    follows_segment: {segment.given_follows_vram}")
+        elif segment.vram_symbol is not None:
+            out.append(f"    fixed_symbol: {segment.vram_symbol}")
+        elif segment.vram_start is not None:
+            out.append(f"    fixed_vram: 0x{segment.vram_start:08X}")
 
         base_section_type = segment.section_order
 
@@ -82,6 +93,7 @@ def main(
                 out.append(f"      - {{ path: {x.object_path} }}")
 
         out.append("")
+        prev_seg = segment
 
     if output is None:
         print()
