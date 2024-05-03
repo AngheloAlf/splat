@@ -29,6 +29,72 @@ def main(
 
     all_segments = split.initialize_segments(config["segments"])
 
+    out.append("settings:")
+    out.append(f"  # base_path: {options.opts.build_path}")
+    out.append(f"  linker_symbols_style: {options.opts.segment_symbols_style}")
+    if options.opts.elf_path:
+        out.append(f"  target_path: {options.opts.elf_path}")
+    if options.opts.ld_dependencies:
+        out.append(f"  d_path: {options.opts.ld_script_path}")
+
+    if options.opts.ld_symbol_header_path is not None:
+        out.append(f"  symbols_header_path: {options.opts.ld_symbol_header_path}")
+        out.append(f"  symbols_header_type: Addr")
+        out.append(f"  symbols_header_as_array: False")
+
+    if ".shstrtab" in options.opts.ld_sections_allowlist:
+        options.opts.ld_sections_allowlist.remove(".shstrtab")
+    if options.opts.ld_sections_allowlist:
+        out.append(f"  sections_allowlist:")
+        for x in options.opts.ld_sections_allowlist:
+            out.append(f"    - {x}")
+
+    if options.opts.ld_sections_denylist:
+        out.append(f"  sections_denylist:")
+        for x in options.opts.ld_sections_denylist:
+            out.append(f"    - {x}")
+
+    out.append(f"  discard_wildcard_section: {options.opts.ld_discard_section}")
+
+    if options.opts.ld_partial_scripts_path is not None:
+        out.append(f"  partial_scripts_folder: {options.opts.ld_partial_scripts_path}")
+    if options.opts.ld_partial_build_segments_path is not None:
+        out.append(f"  partial_build_segments_folder: {options.opts.ld_partial_build_segments_path}")
+
+
+    if not options.opts.ld_bss_is_noload:
+        out.append(f"  alloc_sections:")
+        for x in options.opts.section_order:
+            out.append(f"    - {x}")
+        out.append(f"  noload_sections: []")
+    else:
+        i = 0
+        out.append(f"  alloc_sections:")
+        for x in options.opts.section_order:
+            # If we see any of them lets assume the rest are noload
+            # TODO: do this properly
+            if x in {".sbss", ".scommon", ".bss", "COMMON", ".vubss"}:
+                break
+            out.append(f"    - {x}")
+            i += 1
+        out.append(f"  noload_sections:")
+        for x in options.opts.section_order[i:]:
+            out.append(f"    - {x}")
+
+    if options.opts.subalign is not None:
+        out.append(f"  subalign: 0x{options.opts.subalign:X}")
+    else:
+        out.append(f"  subalign: null")
+
+    # TODO: segment_start_align and section_end_align
+
+    out.append(f"  wildcard_sections: {options.opts.ld_wildcard_sections}")
+
+    if options.opts.gp is not None:
+        out.append(f"  hardcoded_gp_value: 0x{options.opts.gp:08X}")
+
+    out.append(f"")
+
     out.append("segments:")
 
     prev_seg: Optional[Segment] = None
