@@ -120,6 +120,8 @@ def main(
         out.append(f"    files:")
         if isinstance(segment, CommonSegGroup):
             files: List[Segment] = []
+            section_change_per_seg_name: dict[str, dict[str, str]] = dict()
+
             if len(segment.subsegments) == 1:
                 print("   ", segment.subsegments[0])
                 files = [segment.subsegments[0]]
@@ -127,6 +129,11 @@ def main(
                 prev_index_unknown: Optional[int] = None
                 for i, sub in enumerate(segment.subsegments):
                     print("   ", i, sub)
+
+                    if sub.get_linker_section_order() != sub.get_linker_section_linksection():
+                        if sub.name not in section_change_per_seg_name:
+                            section_change_per_seg_name[sub.name] = dict()
+                        section_change_per_seg_name[sub.name][sub.get_linker_section_linksection()] = sub.get_linker_section_order()
 
                     # These are special, add them as-is
                     if isinstance(sub, (CommonSegPad, N64SegLinker_offset)):
@@ -185,7 +192,13 @@ def main(
                     out.append(f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {prev_file.get_linker_section_order()} }}")
                 else:
                     for x in file.get_linker_entries():
-                        out.append(f"      - {{ path: {x.object_path} }}")
+                        if file.name in section_change_per_seg_name:
+                            section_order = []
+                            for k, v in section_change_per_seg_name[file.name].items():
+                                section_order.append(f"{k}: {v}")
+                            out.append(f"      - {{ path: {x.object_path}, section_order: {{ {', '.join(section_order)} }} }}")
+                        else:
+                            out.append(f"      - {{ path: {x.object_path} }}")
                 prev_file = file
         else:
             for x in segment.get_linker_entries():
