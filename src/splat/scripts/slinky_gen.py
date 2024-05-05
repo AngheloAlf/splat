@@ -13,22 +13,7 @@ from ..segtypes.common.pad import CommonSegPad
 from ..segtypes.n64.linker_offset import N64SegLinker_offset
 
 
-def main(
-    config_path: List[str],
-    output: Optional[Path],
-):
-    config = split.initialize_config(config_path, None, False, False)
-
-    # We depend on auto_all_sections doing its thing
-    if ".data" not in options.opts.auto_all_sections:
-        options.opts.auto_all_sections.insert(0, ".data")
-
-    assert not options.opts.ld_legacy_generation, "Legacy linker script generation is not supported yet"
-
-    out: List[str] = []
-
-    all_segments = split.initialize_segments(config["segments"])
-
+def add_settings(out: List[str]):
     out.append("settings:")
     out.append(f"  # base_path: {options.opts.build_path}")
     out.append(f"  linker_symbols_style: {options.opts.segment_symbols_style}")
@@ -59,8 +44,9 @@ def main(
     if options.opts.ld_partial_scripts_path is not None:
         out.append(f"  partial_scripts_folder: {options.opts.ld_partial_scripts_path}")
     if options.opts.ld_partial_build_segments_path is not None:
-        out.append(f"  partial_build_segments_folder: {options.opts.ld_partial_build_segments_path}")
-
+        out.append(
+            f"  partial_build_segments_folder: {options.opts.ld_partial_build_segments_path}"
+        )
 
     if not options.opts.ld_bss_is_noload:
         out.append(f"  alloc_sections:")
@@ -95,6 +81,138 @@ def main(
 
     out.append(f"")
 
+
+def get_files_from_subsegments(
+    section_change_per_seg_name: Dict[str, dict[str, str]],
+    segment: CommonSegGroup,
+    base_section_type: str,
+) -> List[Segment]:
+    files: List[Segment] = []
+
+    prev_index_unknown: Optional[int] = None
+    for i, sub in enumerate(segment.subsegments):
+        print("   ", i, sub)
+
+        if sub.get_linker_section_order() != sub.get_linker_section_linksection():
+            if sub.name not in section_change_per_seg_name:
+                section_change_per_seg_name[sub.name] = dict()
+            section_change_per_seg_name[sub.name][
+                sub.get_linker_section_linksection()
+            ] = sub.get_linker_section_order()
+
+        if isinstance(sub, (CommonSegPad, N64SegLinker_offset)):
+            # These are special, add them as-is
+            files.append(sub)
+            continue
+        if sub.get_linker_section_order() == base_section_type:
+            files.append(sub)
+            continue
+
+        found = False
+        base_section_type_valid = False
+        for j, aux_file in enumerate(files[::-1]):
+            if aux_file.name != sub.name:
+                continue
+            found = True
+
+            if aux_file.get_linker_section_order() == base_section_type:
+                if prev_index_unknown is not None:
+                    # Rescue all the subsegments that we didn't know where to put
+                    print("        inserting missed stuff", prev_index_unknown, i - 1)
+                    for missed_index, missed_sub in enumerate(
+                        segment.subsegments[prev_index_unknown:i]
+                    ):
+                        missed_index += prev_index_unknown
+                        if isinstance(missed_sub, (CommonSegPad, N64SegLinker_offset)):
+                            print("            skipping", missed_index, missed_sub)
+                        elif (
+                            missed_sub.get_linker_section_linksection()
+                            != sub.get_linker_section_linksection()
+                        ):
+                            print("            appending", missed_index, missed_sub)
+                            files.append(missed_sub)
+                        else:
+                            print("            inserting", missed_index, missed_sub)
+                            files.insert(len(files) - j - 1, missed_sub)
+                    prev_index_unknown = None
+
+                if not sub.type.startswith("."):
+                    files.insert(len(files) - j, sub)
+                base_section_type_valid = True
+
+                break
+
+        if found and not base_section_type_valid:
+            if prev_index_unknown is not None:
+                # Do not insert the segments here, we may break stuff.
+                # I guess we could just append them at the end instead
+                print("        appending missed stuff", prev_index_unknown, i - 1)
+                for missed_index, missed_sub in enumerate(
+                    segment.subsegments[prev_index_unknown:i]
+                ):
+                    missed_index += prev_index_unknown
+                    if isinstance(missed_sub, (CommonSegPad, N64SegLinker_offset)):
+                        print("            skipping", missed_index, missed_sub)
+                    else:
+                        print("            appending", missed_index, missed_sub)
+                        files.append(missed_sub)
+                prev_index_unknown = None
+            if not sub.type.startswith("."):
+                files.append(sub)
+
+        # Oy noy, we don't know where to put this.
+        if not found:
+            # Let's remember it and handle it later
+            if prev_index_unknown is None:
+                prev_index_unknown = i
+            print(f"        {sub}")
+    if prev_index_unknown is not None:
+        files.extend(segment.subsegments[prev_index_unknown:])
+
+    return files
+
+
+def handle_group_segment(out: List[str], segment: CommonSegGroup):
+    files: List[Segment] = []
+    section_change_per_seg_name: Dict[str, dict[str, str]] = dict()
+
+    base_section_type = segment.section_order[0]
+
+    if len(segment.subsegments) == 1:
+        print("   ", segment.subsegments[0])
+        files = [segment.subsegments[0]]
+    else:
+        files = get_files_from_subsegments(
+            section_change_per_seg_name, segment, base_section_type
+        )
+
+    prev_file: Optional[Segment] = None
+    for file in files:
+        if isinstance(file, CommonSegPad):
+            assert prev_file is not None
+            out.append(
+                f"      - {{ kind: pad, pad_amount: 0x{file.size:X}, section: {prev_file.get_linker_section_order()} }}"
+            )
+        elif isinstance(file, N64SegLinker_offset):
+            assert prev_file is not None
+            out.append(
+                f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {prev_file.get_linker_section_order()} }}"
+            )
+        else:
+            for linker_entries in file.get_linker_entries():
+                if file.name in section_change_per_seg_name:
+                    section_order = []
+                    for k, v in section_change_per_seg_name[file.name].items():
+                        section_order.append(f"{k}: {v}")
+                    out.append(
+                        f"      - {{ path: {linker_entries.object_path}, section_order: {{ {', '.join(section_order)} }} }}"
+                    )
+                else:
+                    out.append(f"      - {{ path: {linker_entries.object_path} }}")
+        prev_file = file
+
+
+def add_segments(out: List[str], all_segments: List[Segment]):
     out.append("segments:")
 
     prev_seg: Optional[Segment] = None
@@ -115,103 +233,9 @@ def main(
         elif segment.vram_start is not None:
             out.append(f"    fixed_vram: 0x{segment.vram_start:08X}")
 
-        base_section_type = segment.section_order[0]
-
         out.append(f"    files:")
         if isinstance(segment, CommonSegGroup):
-            files: List[Segment] = []
-            section_change_per_seg_name: Dict[str, dict[str, str]] = dict()
-
-            if len(segment.subsegments) == 1:
-                print("   ", segment.subsegments[0])
-                files = [segment.subsegments[0]]
-            else:
-                prev_index_unknown: Optional[int] = None
-                for i, sub in enumerate(segment.subsegments):
-                    print("   ", i, sub)
-
-                    if sub.get_linker_section_order() != sub.get_linker_section_linksection():
-                        if sub.name not in section_change_per_seg_name:
-                            section_change_per_seg_name[sub.name] = dict()
-                        section_change_per_seg_name[sub.name][sub.get_linker_section_linksection()] = sub.get_linker_section_order()
-
-                    if isinstance(sub, (CommonSegPad, N64SegLinker_offset)):
-                        # These are special, add them as-is
-                        files.append(sub)
-                    elif sub.get_linker_section_order() == base_section_type:
-                        files.append(sub)
-                    else:
-                        found = False
-                        base_section_type_valid = False
-                        for j, aux_file in enumerate(files[::-1]):
-                            if aux_file.name == sub.name:
-                                found = True
-
-                                if aux_file.get_linker_section_order() == base_section_type:
-                                    if prev_index_unknown is not None:
-                                        # Rescue all the subsegments that we didn't know where to put
-                                        print("        inserting missed stuff", prev_index_unknown, i-1)
-                                        for missed_index, missed_sub in enumerate(segment.subsegments[prev_index_unknown:i]):
-                                            missed_index += prev_index_unknown
-                                            if isinstance(missed_sub, (CommonSegPad, N64SegLinker_offset)):
-                                                print("            skipping", missed_index, missed_sub)
-                                            elif missed_sub.get_linker_section_linksection() != sub.get_linker_section_linksection():
-                                                print("            appending", missed_index, missed_sub)
-                                                files.append(missed_sub)
-                                            else:
-                                                print("            inserting", missed_index, missed_sub)
-                                                files.insert(len(files)-j-1, missed_sub)
-                                        prev_index_unknown = None
-
-                                    if not sub.type.startswith("."):
-                                        files.insert(len(files)-j, sub)
-                                    base_section_type_valid = True
-
-                                    break
-
-                        if found and not base_section_type_valid:
-                            if prev_index_unknown is not None:
-                                # Do not insert the segments here, we may break stuff.
-                                # I guess we could just append them at the end instead
-                                print("        appending missed stuff", prev_index_unknown, i-1)
-                                for missed_index, missed_sub in enumerate(segment.subsegments[prev_index_unknown:i]):
-                                    missed_index += prev_index_unknown
-                                    if isinstance(missed_sub, (CommonSegPad, N64SegLinker_offset)):
-                                        print("            skipping", missed_index, missed_sub)
-                                    else:
-                                        print("            appending", missed_index, missed_sub)
-                                        files.append(missed_sub)
-                                prev_index_unknown = None
-                            if not sub.type.startswith("."):
-                                files.append(sub)
-
-                        # Oy noy, we don't know where to put this.
-                        if not found:
-                            # Let's remember it and handle it later
-                            if prev_index_unknown is None:
-                                prev_index_unknown = i
-                            print(f"        {sub}")
-                if prev_index_unknown is not None:
-                    files.extend(segment.subsegments[prev_index_unknown:])
-
-            prev_file: Optional[Segment] = None
-            for file in files:
-                if isinstance(file, CommonSegPad):
-                    assert prev_file is not None
-                    out.append(f"      - {{ kind: pad, pad_amount: 0x{file.size:X}, section: {prev_file.get_linker_section_order()} }}")
-                elif isinstance(file, N64SegLinker_offset):
-                    assert prev_file is not None
-                    out.append(f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {prev_file.get_linker_section_order()} }}")
-                else:
-                    for linker_entries in file.get_linker_entries():
-                        if file.name in section_change_per_seg_name:
-                            section_order = []
-                            for k, v in section_change_per_seg_name[file.name].items():
-                                section_order.append(f"{k}: {v}")
-                            out.append(f"      - {{ path: {linker_entries.object_path}, section_order: {{ {', '.join(section_order)} }} }}")
-                        else:
-                            out.append(f"      - {{ path: {linker_entries.object_path} }}")
-                prev_file = file
+            handle_group_segment(out, segment)
         else:
             for linker_entries in segment.get_linker_entries():
                 out.append(f"      - {{ path: {linker_entries.object_path} }}")
@@ -219,6 +243,8 @@ def main(
         out.append("")
         prev_seg = segment
 
+
+def write_out(out: List[str], output: Optional[Path]):
     if output is None:
         print()
         for l in out:
@@ -228,12 +254,39 @@ def main(
         output.write_text("\n".join(out))
 
 
+def main(
+    config_path: List[str],
+    output: Optional[Path],
+):
+    config = split.initialize_config(config_path, None, False, False)
+
+    # We depend on auto_all_sections doing its thing
+    if ".data" not in options.opts.auto_all_sections:
+        options.opts.auto_all_sections.insert(0, ".data")
+
+    assert (
+        not options.opts.ld_legacy_generation
+    ), "Legacy linker script generation is not supported yet"
+
+    all_segments = split.initialize_segments(config["segments"])
+
+    out: List[str] = []
+
+    add_settings(out)
+    add_segments(out, all_segments)
+
+    write_out(out, output)
+
+
 def add_arguments_to_parser(parser: argparse.ArgumentParser):
     parser.add_argument(
         "config", help="path to a compatible config .yaml file", nargs="+"
     )
     parser.add_argument(
-        "-o", "--output", help="Output path. If missing the generated yaml will be printed to stdout", type=Path
+        "-o",
+        "--output",
+        help="Output path. If missing the generated yaml will be printed to stdout",
+        type=Path,
     )
 
 
