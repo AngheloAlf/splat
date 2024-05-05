@@ -2,7 +2,7 @@
 
 import argparse
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional, List, Dict
 
 from . import split
 from ..util import options
@@ -120,7 +120,7 @@ def main(
         out.append(f"    files:")
         if isinstance(segment, CommonSegGroup):
             files: List[Segment] = []
-            section_change_per_seg_name: dict[str, dict[str, str]] = dict()
+            section_change_per_seg_name: Dict[str, dict[str, str]] = dict()
 
             if len(segment.subsegments) == 1:
                 print("   ", segment.subsegments[0])
@@ -135,8 +135,8 @@ def main(
                             section_change_per_seg_name[sub.name] = dict()
                         section_change_per_seg_name[sub.name][sub.get_linker_section_linksection()] = sub.get_linker_section_order()
 
-                    # These are special, add them as-is
                     if isinstance(sub, (CommonSegPad, N64SegLinker_offset)):
+                        # These are special, add them as-is
                         files.append(sub)
                     elif sub.get_linker_section_order() == base_section_type:
                         files.append(sub)
@@ -150,9 +150,17 @@ def main(
                                 if aux_file.get_linker_section_order() == base_section_type:
                                     if prev_index_unknown is not None:
                                         # Rescue all the subsegments that we didn't know where to put
-                                        print("        inserting missed stuff", prev_index_unknown, i)
-                                        for missed_sub in segment.subsegments[prev_index_unknown:i]:
-                                            files.insert(len(files)-j-1, missed_sub)
+                                        print("        inserting missed stuff", prev_index_unknown, i-1)
+                                        for missed_index, missed_sub in enumerate(segment.subsegments[prev_index_unknown:i]):
+                                            missed_index += prev_index_unknown
+                                            if isinstance(missed_sub, (CommonSegPad, N64SegLinker_offset)):
+                                                print("            skipping", missed_index, missed_sub)
+                                            elif missed_sub.get_linker_section_linksection() != sub.get_linker_section_linksection():
+                                                print("            appending", missed_index, missed_sub)
+                                                files.append(missed_sub)
+                                            else:
+                                                print("            inserting", missed_index, missed_sub)
+                                                files.insert(len(files)-j-1, missed_sub)
                                         prev_index_unknown = None
 
                                     if not sub.type.startswith("."):
@@ -165,9 +173,14 @@ def main(
                             if prev_index_unknown is not None:
                                 # Do not insert the segments here, we may break stuff.
                                 # I guess we could just append them at the end instead
-                                print("        appending missed stuff", prev_index_unknown, i)
-                                for missed_sub in segment.subsegments[prev_index_unknown:i]:
-                                    files.append(missed_sub)
+                                print("        appending missed stuff", prev_index_unknown, i-1)
+                                for missed_index, missed_sub in enumerate(segment.subsegments[prev_index_unknown:i]):
+                                    missed_index += prev_index_unknown
+                                    if isinstance(missed_sub, (CommonSegPad, N64SegLinker_offset)):
+                                        print("            skipping", missed_index, missed_sub)
+                                    else:
+                                        print("            appending", missed_index, missed_sub)
+                                        files.append(missed_sub)
                                 prev_index_unknown = None
                             if not sub.type.startswith("."):
                                 files.append(sub)
@@ -178,7 +191,6 @@ def main(
                             if prev_index_unknown is None:
                                 prev_index_unknown = i
                             print(f"        {sub}")
-                            # files.append(sub)
                 if prev_index_unknown is not None:
                     files.extend(segment.subsegments[prev_index_unknown:])
 
@@ -191,18 +203,18 @@ def main(
                     assert prev_file is not None
                     out.append(f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {prev_file.get_linker_section_order()} }}")
                 else:
-                    for x in file.get_linker_entries():
+                    for linker_entries in file.get_linker_entries():
                         if file.name in section_change_per_seg_name:
                             section_order = []
                             for k, v in section_change_per_seg_name[file.name].items():
                                 section_order.append(f"{k}: {v}")
-                            out.append(f"      - {{ path: {x.object_path}, section_order: {{ {', '.join(section_order)} }} }}")
+                            out.append(f"      - {{ path: {linker_entries.object_path}, section_order: {{ {', '.join(section_order)} }} }}")
                         else:
-                            out.append(f"      - {{ path: {x.object_path} }}")
+                            out.append(f"      - {{ path: {linker_entries.object_path} }}")
                 prev_file = file
         else:
-            for x in segment.get_linker_entries():
-                out.append(f"      - {{ path: {x.object_path} }}")
+            for linker_entries in segment.get_linker_entries():
+                out.append(f"      - {{ path: {linker_entries.object_path} }}")
 
         out.append("")
         prev_seg = segment
