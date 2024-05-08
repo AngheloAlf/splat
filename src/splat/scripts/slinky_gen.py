@@ -8,10 +8,9 @@ from . import split
 from ..util import options
 from ..segtypes.segment import Segment
 from ..segtypes.common.group import CommonSegGroup
-
-# from ..segtypes.common.data import CommonSegData
 from ..segtypes.common.pad import CommonSegPad
 from ..segtypes.n64.linker_offset import N64SegLinker_offset
+from ..segtypes.common.lib import CommonSegLib
 
 
 def get_alloc_noload_sections(section_order: List[str]) -> Tuple[List[str], List[str]]:
@@ -247,6 +246,13 @@ def handle_group_segment(out: List[str], segment: CommonSegGroup):
         elif isinstance(file, N64SegLinker_offset):
             out.append(
                 f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {section} }}"
+            )
+        elif isinstance(file, CommonSegLib):
+            entry = file.get_linker_entries()[0]
+            assert entry.object_path is not None
+            p, subfile = str(entry.object_path).split(":")
+            out.append(
+                f"      - {{ kind: archive, path: {p}, subfile: {subfile} }}"
             )
         else:
             for linker_entries in file.get_linker_entries():
