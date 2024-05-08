@@ -2,7 +2,7 @@
 
 import argparse
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Tuple, Dict
 
 from . import split
 from ..util import options
@@ -83,12 +83,13 @@ def add_settings(out: List[str]):
 
 
 def get_files_from_subsegments(
-    section_change_per_seg_name: Dict[str, dict[str, str]],
+    section_change_per_seg_name: Dict[str, Dict[str, str]],
     segment: CommonSegGroup,
     base_section_type: str,
-) -> List[Segment]:
-    files: List[Segment] = []
+) -> List[Tuple[Segment, str]]:
+    files: List[Tuple[Segment, str]] = []
 
+    prev_sub: Optional[Segment] = None
     prev_index_unknown: Optional[int] = None
     for i, sub in enumerate(segment.subsegments):
         print("   ", i, sub)
@@ -100,17 +101,26 @@ def get_files_from_subsegments(
                 sub.get_linker_section_linksection()
             ] = sub.get_linker_section_order()
 
-        if isinstance(sub, (CommonSegPad, N64SegLinker_offset)):
+        if isinstance(sub, CommonSegPad):
             # These are special, add them as-is
-            files.append(sub)
+            assert prev_sub is not None
+            files.append((sub, prev_sub.get_linker_section_order()))
+            prev_sub = sub
+            continue
+        if isinstance(sub, N64SegLinker_offset):
+            # These are special, add them as-is
+            assert prev_sub is not None
+            files.append((sub, prev_sub.get_linker_section_order()))
+            prev_sub = sub
             continue
         if sub.get_linker_section_order() == base_section_type:
-            files.append(sub)
+            files.append((sub, sub.get_linker_section_order()))
+            prev_sub = sub
             continue
 
         found = False
         base_section_type_valid = False
-        for j, aux_file in enumerate(files[::-1]):
+        for j, (aux_file, aux_section) in enumerate(files[::-1]):
             if aux_file.name != sub.name:
                 continue
             found = True
@@ -130,14 +140,21 @@ def get_files_from_subsegments(
                             != sub.get_linker_section_linksection()
                         ):
                             print("            appending", missed_index, missed_sub)
-                            files.append(missed_sub)
+                            files.append(
+                                (missed_sub, missed_sub.get_linker_section_order())
+                            )
                         else:
                             print("            inserting", missed_index, missed_sub)
-                            files.insert(len(files) - j - 1, missed_sub)
+                            files.insert(
+                                len(files) - j - 1,
+                                (missed_sub, missed_sub.get_linker_section_order()),
+                            )
                     prev_index_unknown = None
 
                 if not sub.type.startswith("."):
-                    files.insert(len(files) - j, sub)
+                    files.insert(
+                        len(files) - j, (sub, sub.get_linker_section_linksection())
+                    )
                 base_section_type_valid = True
 
                 break
@@ -155,10 +172,12 @@ def get_files_from_subsegments(
                         print("            skipping", missed_index, missed_sub)
                     else:
                         print("            appending", missed_index, missed_sub)
-                        files.append(missed_sub)
+                        files.append(
+                            (missed_sub, missed_sub.get_linker_section_order())
+                        )
                 prev_index_unknown = None
             if not sub.type.startswith("."):
-                files.append(sub)
+                files.append((sub, sub.get_linker_section_order()))
 
         # Oy noy, we don't know where to put this.
         if not found:
@@ -166,37 +185,122 @@ def get_files_from_subsegments(
             if prev_index_unknown is None:
                 prev_index_unknown = i
             print(f"        {sub}")
+
+        prev_sub = sub
     if prev_index_unknown is not None:
-        files.extend(segment.subsegments[prev_index_unknown:])
+        for sub in segment.subsegments[prev_index_unknown:]:
+            files.append((sub, sub.get_linker_section_order()))
+
+    return files
+
+
+def find_index_by_name(files: List[Tuple[Segment, str]], name: str) -> int:
+    for i, (file, section) in enumerate(files):
+        if file.name == name:
+            return i
+
+    return len(files)
+
+
+def get_files_from_subsegments_2(
+    section_change_per_seg_name: Dict[str, Dict[str, str]],
+    segment: CommonSegGroup,
+    base_section_type: str,
+) -> List[Tuple[Segment, str]]:
+    files: List[Tuple[Segment, str]] = []
+
+    names: set[str] = set()
+
+    prev_sub: Optional[Segment] = None
+    for i, sub in enumerate(segment.subsegments):
+        print("   ", i, sub)
+
+        if sub.get_linker_section_order() != sub.get_linker_section_linksection():
+            if sub.name not in section_change_per_seg_name:
+                section_change_per_seg_name[sub.name] = dict()
+            section_change_per_seg_name[sub.name][
+                sub.get_linker_section_linksection()
+            ] = sub.get_linker_section_order()
+
+        if isinstance(sub, CommonSegPad):
+            # These are special, add them as-is
+            assert prev_sub is not None
+            files.append((sub, prev_sub.get_linker_section_order()))
+        elif isinstance(sub, N64SegLinker_offset):
+            # These are special, add them as-is
+            assert prev_sub is not None
+            files.append((sub, prev_sub.get_linker_section_order()))
+        elif sub.get_linker_section_order() == base_section_type:
+            # Get base files
+            files.append((sub, sub.get_linker_section_order()))
+            names.add(sub.name)
+
+        prev_sub = sub
+
+    prev_sub = None
+    for i, sub in enumerate(segment.subsegments):
+        if isinstance(sub, CommonSegPad):
+            pass
+        elif isinstance(sub, N64SegLinker_offset):
+            pass
+        elif sub.get_linker_section_order() == base_section_type:
+            pass
+
+        elif sub.name in names and sub.type.startswith("."):
+            # Non-base file has been migrated to C file
+            pass
+
+        else:
+            # Look for any file that doesn't have a corresponding base file
+            print("   ", i, sub)
+
+            # Where to insert it?
+
+            # Check prev subsegment
+            if prev_sub is not None and prev_sub.name in names:
+                prev_index = find_index_by_name(files, prev_sub.name)
+
+                prev_file = files[prev_index][0] if prev_index < len(files) else None
+                next_file = (
+                    files[prev_index + 1][0] if prev_index + 1 < len(files) else None
+                )
+
+                print(
+                    f"        Inserting {sub} into {prev_index+1}. Between '{prev_file}' and '{next_file}', guided by '{prev_sub}'"
+                )
+                files.insert(prev_index + 1, (sub, sub.get_linker_section_order()))
+                names.add(sub.name)
+            else:
+                print(f"        '{sub}' has been forgotten and dropped. Sad :c")
+            pass
+
+        prev_sub = sub
 
     return files
 
 
 def handle_group_segment(out: List[str], segment: CommonSegGroup):
-    files: List[Segment] = []
-    section_change_per_seg_name: Dict[str, dict[str, str]] = dict()
+    files: List[Tuple[Segment, str]] = []
+    section_change_per_seg_name: Dict[str, Dict[str, str]] = dict()
 
     base_section_type = segment.section_order[0]
 
     if len(segment.subsegments) == 1:
         print("   ", segment.subsegments[0])
-        files = [segment.subsegments[0]]
+        files = [(segment.subsegments[0], "")]
     else:
-        files = get_files_from_subsegments(
+        files = get_files_from_subsegments_2(
             section_change_per_seg_name, segment, base_section_type
         )
 
-    prev_file: Optional[Segment] = None
-    for file in files:
+    for file, section in files:
         if isinstance(file, CommonSegPad):
-            assert prev_file is not None
             out.append(
-                f"      - {{ kind: pad, pad_amount: 0x{file.size:X}, section: {prev_file.get_linker_section_order()} }}"
+                f"      - {{ kind: pad, pad_amount: 0x{file.size:X}, section: {section} }}"
             )
         elif isinstance(file, N64SegLinker_offset):
-            assert prev_file is not None
             out.append(
-                f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {prev_file.get_linker_section_order()} }}"
+                f"      - {{ kind: linker_offset, linker_offset_name: {file.name}, section: {section} }}"
             )
         else:
             for linker_entries in file.get_linker_entries():
@@ -209,7 +313,6 @@ def handle_group_segment(out: List[str], segment: CommonSegGroup):
                     )
                 else:
                     out.append(f"      - {{ path: {linker_entries.object_path} }}")
-        prev_file = file
 
 
 def add_segments(out: List[str], all_segments: List[Segment]):
