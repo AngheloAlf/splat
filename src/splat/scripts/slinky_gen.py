@@ -22,7 +22,7 @@ def get_alloc_noload_sections(section_order: List[str]) -> Tuple[List[str], List
         alloc_sections.extend(section_order)
     else:
         i = 0
-        for x in options.opts.section_order:
+        for x in section_order:
             # If we see any of them lets assume the rest are noload
             # TODO: try to not hardcode them
             if x in {".sbss", ".scommon", ".bss", "COMMON", ".vubss"}:
@@ -30,7 +30,7 @@ def get_alloc_noload_sections(section_order: List[str]) -> Tuple[List[str], List
             alloc_sections.append(x)
             i += 1
 
-        for x in options.opts.section_order[i:]:
+        for x in section_order[i:]:
             noload_sections.append(x)
 
     return alloc_sections, noload_sections
@@ -227,7 +227,9 @@ def handle_group_segment(out: List[str], segment: CommonSegGroup):
     files: List[Tuple[Segment, str]] = []
     section_change_per_seg_name: Dict[str, Dict[str, str]] = dict()
 
-    base_section_type = segment.section_order[0]
+    base_section_type = ".text"
+    if segment.section_order.index(".rodata") < segment.section_order.index(".text"):
+        base_section_type = ".rodata"
 
     if len(segment.subsegments) == 1:
         print("   ", segment.subsegments[0])
