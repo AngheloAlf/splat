@@ -37,7 +37,7 @@ def get_alloc_noload_sections(section_order: List[str]) -> Tuple[List[str], List
 
 def add_settings(out: List[str]):
     out.append("settings:")
-    out.append(f"  # base_path: {options.opts.build_path}")
+    out.append(f"  base_path: {options.opts.build_path}")
     out.append(f"  linker_symbols_style: {options.opts.segment_symbols_style}")
     if options.opts.elf_path:
         out.append(f"  target_path: {options.opts.elf_path}")
@@ -250,21 +250,22 @@ def handle_group_segment(out: List[str], segment: CommonSegGroup):
         elif isinstance(file, CommonSegLib):
             entry = file.get_linker_entries()[0]
             assert entry.object_path is not None
-            p, subfile = str(entry.object_path).split(":")
-            out.append(
-                f"      - {{ kind: archive, path: {p}, subfile: {subfile} }}"
-            )
+            p, subfile = map(Path, str(entry.object_path).split(":"))
+            p = p.relative_to(options.opts.build_path)
+            out.append(f"      - {{ kind: archive, path: {p}, subfile: {subfile} }}")
         else:
             for linker_entries in file.get_linker_entries():
+                assert linker_entries.object_path is not None
+                p = linker_entries.object_path.relative_to(options.opts.build_path)
                 if file.name in section_change_per_seg_name:
                     section_order = []
                     for k, v in section_change_per_seg_name[file.name].items():
                         section_order.append(f"{k}: {v}")
                     out.append(
-                        f"      - {{ path: {linker_entries.object_path}, section_order: {{ {', '.join(section_order)} }} }}"
+                        f"      - {{ path: {p}, section_order: {{ {', '.join(section_order)} }} }}"
                     )
                 else:
-                    out.append(f"      - {{ path: {linker_entries.object_path} }}")
+                    out.append(f"      - {{ path: {p} }}")
 
 
 def add_segments(out: List[str], all_segments: List[Segment]):
@@ -331,7 +332,9 @@ def add_segments(out: List[str], all_segments: List[Segment]):
             handle_group_segment(out, segment)
         else:
             for linker_entries in segment.get_linker_entries():
-                out.append(f"      - {{ path: {linker_entries.object_path} }}")
+                assert linker_entries.object_path is not None
+                p = linker_entries.object_path.relative_to(options.opts.build_path)
+                out.append(f"      - {{ path: {p} }}")
 
         out.append("")
         prev_seg = segment
