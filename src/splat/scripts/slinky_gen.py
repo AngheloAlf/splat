@@ -8,9 +8,31 @@ from . import split
 from ..util import options
 from ..segtypes.segment import Segment
 from ..segtypes.common.group import CommonSegGroup
-from ..segtypes.common.data import CommonSegData
+# from ..segtypes.common.data import CommonSegData
 from ..segtypes.common.pad import CommonSegPad
 from ..segtypes.n64.linker_offset import N64SegLinker_offset
+
+
+def get_alloc_noload_sections(section_order: List[str]) -> Tuple[List[str], List[str]]:
+    alloc_sections: List[str] = []
+    noload_sections: List[str] = []
+
+    if not options.opts.ld_bss_is_noload:
+        alloc_sections.extend(section_order)
+    else:
+        i = 0
+        for x in options.opts.section_order:
+            # If we see any of them lets assume the rest are noload
+            # TODO: try to not hardcode them
+            if x in {".sbss", ".scommon", ".bss", "COMMON", ".vubss"}:
+                break
+            alloc_sections.append(x)
+            i += 1
+
+        for x in options.opts.section_order[i:]:
+            noload_sections.append(x)
+
+    return alloc_sections, noload_sections
 
 
 def add_settings(out: List[str]):
@@ -20,7 +42,7 @@ def add_settings(out: List[str]):
     if options.opts.elf_path:
         out.append(f"  target_path: {options.opts.elf_path}")
     if options.opts.ld_dependencies:
-        out.append(f"  d_path: {options.opts.ld_script_path}")
+        out.append(f"  d_path: {options.opts.ld_script_path.with_suffix('.d')}")
 
     if options.opts.ld_symbol_header_path is not None:
         out.append(f"  symbols_header_path: {options.opts.ld_symbol_header_path}")
@@ -48,23 +70,19 @@ def add_settings(out: List[str]):
             f"  partial_build_segments_folder: {options.opts.ld_partial_build_segments_path}"
         )
 
-    if not options.opts.ld_bss_is_noload:
+    alloc_sections, noload_sections = get_alloc_noload_sections(options.opts.section_order)
+    if len(alloc_sections) == 0:
+        out.append(f"  alloc_sections: []")
+    else:
         out.append(f"  alloc_sections:")
-        for x in options.opts.section_order:
+        for x in alloc_sections:
             out.append(f"    - {x}")
+
+    if len(noload_sections) == 0:
         out.append(f"  noload_sections: []")
     else:
-        i = 0
-        out.append(f"  alloc_sections:")
-        for x in options.opts.section_order:
-            # If we see any of them lets assume the rest are noload
-            # TODO: do this properly
-            if x in {".sbss", ".scommon", ".bss", "COMMON", ".vubss"}:
-                break
-            out.append(f"    - {x}")
-            i += 1
         out.append(f"  noload_sections:")
-        for x in options.opts.section_order[i:]:
+        for x in noload_sections:
             out.append(f"    - {x}")
 
     if options.opts.subalign is not None:
@@ -373,6 +391,12 @@ def add_segments(out: List[str], all_segments: List[Segment]):
         elif segment.vram_start is not None:
             out.append(f"    fixed_vram: 0x{segment.vram_start:08X}")
 
+        if segment.subalign != options.opts.subalign:
+            if segment.subalign is not None:
+                out.append(f"    subalign: 0x{segment.subalign:X}")
+            else:
+                out.append(f"    subalign: null")
+
         if options.opts.segment_end_before_align and prev_seg is not None and prev_seg.align is not None:
             out.append(f"    segment_start_align: 0x{prev_seg.align:X}")
         else:
@@ -382,6 +406,22 @@ def add_segments(out: List[str], all_segments: List[Segment]):
             out.append(f"    section_end_align: 0x{segment.align:X}")
         else:
             out.append(f"    section_end_align: null")
+
+        if segment.section_order != options.opts.section_order:
+            alloc_sections, noload_sections = get_alloc_noload_sections(segment.section_order)
+            if len(alloc_sections) == 0:
+                out.append(f"    alloc_sections: []")
+            else:
+                out.append(f"    alloc_sections:")
+                for x in alloc_sections:
+                    out.append(f"      - {x}")
+
+            if len(noload_sections) == 0:
+                out.append(f"    noload_sections: []")
+            else:
+                out.append(f"    noload_sections:")
+                for x in noload_sections:
+                    out.append(f"      - {x}")
 
         out.append(f"    files:")
         if isinstance(segment, CommonSegGroup):
