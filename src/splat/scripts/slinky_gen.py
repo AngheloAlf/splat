@@ -195,9 +195,9 @@ def get_files_from_subsegments(
 
 
 def find_index_by_name(files: List[Tuple[Segment, str]], name: str) -> int:
-    for i, (file, section) in enumerate(files):
+    for i, (file, section) in enumerate(files[::-1]):
         if file.name == name:
-            return i
+            return len(files) - i - 1
 
     return len(files)
 
@@ -237,6 +237,7 @@ def get_files_from_subsegments_2(
 
         prev_sub = sub
 
+    started_sections: set[str] = {base_section_type}
     prev_sub = None
     for i, sub in enumerate(segment.subsegments):
         if isinstance(sub, CommonSegPad):
@@ -246,9 +247,12 @@ def get_files_from_subsegments_2(
         elif sub.get_linker_section_order() == base_section_type:
             pass
 
+        elif sub.is_auto_all:
+            pass
+
         elif sub.name in names and sub.type.startswith("."):
             # Non-base file has been migrated to C file
-            pass
+            started_sections.add(sub.get_linker_section_order())
 
         else:
             # Look for any file that doesn't have a corresponding base file
@@ -256,8 +260,11 @@ def get_files_from_subsegments_2(
 
             # Where to insert it?
 
+            next_sub = segment.subsegments[i+1] if i+1 < len(segment.subsegments) else None
+
+
             # Check prev subsegment
-            if prev_sub is not None and prev_sub.name in names:
+            if prev_sub is not None and prev_sub.name in names and prev_sub.get_linker_section_order() == sub.get_linker_section_order():
                 prev_index = find_index_by_name(files, prev_sub.name)
 
                 prev_file = files[prev_index][0] if prev_index < len(files) else None
@@ -266,13 +273,45 @@ def get_files_from_subsegments_2(
                 )
 
                 print(
-                    f"        Inserting {sub} into {prev_index+1}. Between '{prev_file}' and '{next_file}', guided by '{prev_sub}'"
+                    f"        Inserting '{sub}' into {prev_index+1}. Between '{prev_file}' and '{next_file}', guided by <prev> '{prev_sub}'"
                 )
                 files.insert(prev_index + 1, (sub, sub.get_linker_section_order()))
                 names.add(sub.name)
+                started_sections.add(sub.get_linker_section_order())
+            elif sub.get_linker_section_order() not in started_sections:
+                # new section, inserting it at the beginning should be harmless
+                next_file = (
+                    files[1][0] if 1 < len(files) else None
+                )
+                print(
+                    f"        Inserting '{sub}' into {0}. Before '{next_file}'"
+                )
+                files.insert(0, (sub, sub.get_linker_section_order()))
+                names.add(sub.name)
+                started_sections.add(sub.get_linker_section_order())
+            elif next_sub is not None and next_sub.name in names:
+                next_index = find_index_by_name(files, next_sub.name)
+
+                prev_file = files[next_index-1][0] if next_index-1 > 0 else None
+                next_file = (
+                    files[next_index][0] if next_index < len(files) else None
+                )
+
+                print(
+                    f"        Inserting '{sub}' into {next_index}. Between '{prev_file}' and '{next_file}', guided by <next> '{next_sub}'"
+                )
+                files.insert(next_index, (sub, sub.get_linker_section_order()))
+                names.add(sub.name)
+                started_sections.add(sub.get_linker_section_order())
             else:
-                print(f"        '{sub}' has been forgotten and dropped. Sad :c")
-            pass
+                # print(f"        '{sub}' has been dropped and forgotten. Sad :c")
+
+                print(
+                    f"        Appending '{sub}' at the end of the list."
+                )
+                files.append((sub, sub.get_linker_section_order()))
+                names.add(sub.name)
+                started_sections.add(sub.get_linker_section_order())
 
         prev_sub = sub
 
