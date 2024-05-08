@@ -8,6 +8,7 @@ from . import split
 from ..util import options
 from ..segtypes.segment import Segment
 from ..segtypes.common.group import CommonSegGroup
+
 # from ..segtypes.common.data import CommonSegData
 from ..segtypes.common.pad import CommonSegPad
 from ..segtypes.n64.linker_offset import N64SegLinker_offset
@@ -70,7 +71,9 @@ def add_settings(out: List[str]):
             f"  partial_build_segments_folder: {options.opts.ld_partial_build_segments_path}"
         )
 
-    alloc_sections, noload_sections = get_alloc_noload_sections(options.opts.section_order)
+    alloc_sections, noload_sections = get_alloc_noload_sections(
+        options.opts.section_order
+    )
     if len(alloc_sections) == 0:
         out.append(f"  alloc_sections: []")
     else:
@@ -276,11 +279,17 @@ def get_files_from_subsegments_2(
 
             # Where to insert it?
 
-            next_sub = segment.subsegments[i+1] if i+1 < len(segment.subsegments) else None
-
+            next_sub = (
+                segment.subsegments[i + 1] if i + 1 < len(segment.subsegments) else None
+            )
 
             # Check prev subsegment
-            if prev_sub is not None and prev_sub.name in names and prev_sub.get_linker_section_order() == sub.get_linker_section_order():
+            if (
+                prev_sub is not None
+                and prev_sub.name in names
+                and prev_sub.get_linker_section_order()
+                == sub.get_linker_section_order()
+            ):
                 prev_index = find_index_by_name(files, prev_sub.name)
 
                 prev_file = files[prev_index][0] if prev_index < len(files) else None
@@ -296,22 +305,16 @@ def get_files_from_subsegments_2(
                 started_sections.add(sub.get_linker_section_order())
             elif sub.get_linker_section_order() not in started_sections:
                 # new section, inserting it at the beginning should be harmless
-                next_file = (
-                    files[1][0] if 1 < len(files) else None
-                )
-                print(
-                    f"        Inserting '{sub}' into {0}. Before '{next_file}'"
-                )
+                next_file = files[1][0] if 1 < len(files) else None
+                print(f"        Inserting '{sub}' into {0}. Before '{next_file}'")
                 files.insert(0, (sub, sub.get_linker_section_order()))
                 names.add(sub.name)
                 started_sections.add(sub.get_linker_section_order())
             elif next_sub is not None and next_sub.name in names:
                 next_index = find_index_by_name(files, next_sub.name)
 
-                prev_file = files[next_index-1][0] if next_index-1 > 0 else None
-                next_file = (
-                    files[next_index][0] if next_index < len(files) else None
-                )
+                prev_file = files[next_index - 1][0] if next_index - 1 > 0 else None
+                next_file = files[next_index][0] if next_index < len(files) else None
 
                 print(
                     f"        Inserting '{sub}' into {next_index}. Between '{prev_file}' and '{next_file}', guided by <next> '{next_sub}'"
@@ -322,9 +325,7 @@ def get_files_from_subsegments_2(
             else:
                 # print(f"        '{sub}' has been dropped and forgotten. Sad :c")
 
-                print(
-                    f"        Appending '{sub}' at the end of the list."
-                )
+                print(f"        Appending '{sub}' at the end of the list.")
                 files.append((sub, sub.get_linker_section_order()))
                 names.add(sub.name)
                 started_sections.add(sub.get_linker_section_order())
@@ -397,7 +398,11 @@ def add_segments(out: List[str], all_segments: List[Segment]):
             else:
                 out.append(f"    subalign: null")
 
-        if options.opts.segment_end_before_align and prev_seg is not None and prev_seg.align is not None:
+        if (
+            options.opts.segment_end_before_align
+            and prev_seg is not None
+            and prev_seg.align is not None
+        ):
             out.append(f"    segment_start_align: 0x{prev_seg.align:X}")
         else:
             out.append(f"    segment_start_align: null")
@@ -408,7 +413,9 @@ def add_segments(out: List[str], all_segments: List[Segment]):
             out.append(f"    section_end_align: null")
 
         if segment.section_order != options.opts.section_order:
-            alloc_sections, noload_sections = get_alloc_noload_sections(segment.section_order)
+            alloc_sections, noload_sections = get_alloc_noload_sections(
+                segment.section_order
+            )
             if len(alloc_sections) == 0:
                 out.append(f"    alloc_sections: []")
             else:
