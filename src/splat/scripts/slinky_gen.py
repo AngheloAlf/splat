@@ -72,8 +72,6 @@ def add_settings(out: List[str]):
     else:
         out.append(f"  subalign: null")
 
-    # TODO: segment_start_align and section_end_align
-
     out.append(f"  wildcard_sections: {options.opts.ld_wildcard_sections}")
 
     if options.opts.gp is not None:
@@ -374,6 +372,16 @@ def add_segments(out: List[str], all_segments: List[Segment]):
             out.append(f"    fixed_symbol: {segment.vram_symbol}")
         elif segment.vram_start is not None:
             out.append(f"    fixed_vram: 0x{segment.vram_start:08X}")
+
+        if options.opts.segment_end_before_align and prev_seg is not None and prev_seg.align is not None:
+            out.append(f"    segment_start_align: 0x{prev_seg.align:X}")
+        else:
+            out.append(f"    segment_start_align: null")
+
+        if segment.align is not None and options.opts.ld_align_section_vram_end:
+            out.append(f"    section_end_align: 0x{segment.align:X}")
+        else:
+            out.append(f"    section_end_align: null")
 
         out.append(f"    files:")
         if isinstance(segment, CommonSegGroup):
