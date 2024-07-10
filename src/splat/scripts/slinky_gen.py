@@ -97,6 +97,11 @@ def add_settings(out: List[str]):
     if options.opts.gp is not None:
         out.append(f"  hardcoded_gp_value: 0x{options.opts.gp:08X}")
 
+    if options.opts.ld_align_segment_start is not None:
+        out.append(f"  segment_start_align: 0x{options.opts.ld_align_segment_start:X}")
+    else:
+        out.append(f"  segment_start_align: null")
+
     out.append(f"")
 
 
@@ -295,14 +300,17 @@ def add_segments(out: List[str], all_segments: List[Segment]):
             else:
                 out.append(f"    subalign: null")
 
-        if (
+        if segment.ld_align_segment_start == options.opts.ld_align_segment_start:
+            # Empty on purpose
+            pass
+        elif segment.ld_align_segment_start is not None:
+            out.append(f"    segment_start_align: 0x{segment.ld_align_segment_start:X}")
+        elif (
             options.opts.segment_end_before_align
             and prev_seg is not None
             and prev_seg.align is not None
         ):
             out.append(f"    segment_start_align: 0x{prev_seg.align:X}")
-        else:
-            out.append(f"    segment_start_align: null")
 
         if segment.align is not None and options.opts.ld_align_section_vram_end:
             out.append(f"    section_end_align: 0x{segment.align:X}")
