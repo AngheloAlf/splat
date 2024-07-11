@@ -312,10 +312,11 @@ def add_segments(out: List[str], all_segments: List[Segment]):
         ):
             out.append(f"    segment_start_align: 0x{prev_seg.align:X}")
 
-        if segment.align is not None and options.opts.ld_align_section_vram_end:
-            out.append(f"    section_end_align: 0x{segment.align:X}")
-        else:
-            out.append(f"    section_end_align: null")
+        if options.opts.ld_align_section_vram_end:
+            if segment.align is not None:
+                out.append(f"    section_end_align: 0x{segment.align:X}")
+            else:
+                out.append(f"    section_end_align: null")
 
         if segment.section_order != options.opts.section_order:
             alloc_sections, noload_sections = get_alloc_noload_sections(
