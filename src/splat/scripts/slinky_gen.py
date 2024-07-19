@@ -11,6 +11,7 @@ from ..segtypes.common.group import CommonSegGroup
 from ..segtypes.common.pad import CommonSegPad
 from ..segtypes.n64.linker_offset import N64SegLinker_offset
 from ..segtypes.common.lib import CommonSegLib
+from ..segtypes.common.textbin import CommonSegTextbin
 
 
 def get_alloc_noload_sections(section_order: List[str]) -> Tuple[List[str], List[str]]:
@@ -35,7 +36,7 @@ def get_alloc_noload_sections(section_order: List[str]) -> Tuple[List[str], List
     return alloc_sections, noload_sections
 
 
-def add_settings(out: List[str]):
+def add_settings(out: List[str], all_segments: List[Segment]):
     out.append("settings:")
     out.append(f"  base_path: {options.opts.build_path}")
     out.append(f"  linker_symbols_style: {options.opts.segment_symbols_style}")
@@ -62,6 +63,9 @@ def add_settings(out: List[str]):
             out.append(f"    - {x}")
 
     out.append(f"  discard_wildcard_section: {options.opts.ld_discard_section}")
+
+    if len(all_segments) == 1:
+        out.append(f"  single_segment_mode: True")
 
     if options.opts.ld_partial_scripts_path is not None:
         out.append(f"  partial_scripts_folder: {options.opts.ld_partial_scripts_path}")
@@ -161,7 +165,7 @@ def get_files_from_subsegments(
         elif sub.is_auto_all:
             pass
 
-        elif sub.name in names and sub.type.startswith("."):
+        elif sub.name in names and (sub.type.startswith(".") or isinstance(sub, CommonSegTextbin)):
             # Non-base file has been migrated to C file
             started_sections.add(sub.get_linker_section_order())
 
@@ -377,7 +381,7 @@ def main(
 
     out: List[str] = []
 
-    add_settings(out)
+    add_settings(out, all_segments)
     add_segments(out, all_segments)
 
     write_out(out, output)
