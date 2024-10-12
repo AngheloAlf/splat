@@ -1,5 +1,10 @@
 # splat Release Notes
 
+### 0.27.4
+
+* Add compiler options supported by spimdisasm.
+  * New compilers: `KMC` (n64), `EGCS` (iQue), `PSYQ` (PS1) and `MWCC` (PS2)
+
 ### 0.27.3
 
 * Fix a possible infinite recursion due to a segment being its own sibling.

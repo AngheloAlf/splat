@@ -55,17 +55,25 @@ platform: psx
 Compiler used to build the binary.
 
 splat recognizes the following compilers, and it will adapt it behavior accordingly for them, but unknown compilers can be passed as well:
+
 - GCC
 - SN64
 - IDO
+- KMC
+- EGCS
+- PSYQ
+- MWCC
+- EEGCC
 
 #### Usage
+
 ```yaml
 compiler: IDO
 ```
 
 #### Default
-`ido`
+
+`IDO`
 
 
 ### endianness
