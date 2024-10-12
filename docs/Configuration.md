@@ -62,7 +62,7 @@ splat recognizes the following compilers, and it will adapt it behavior accordin
 - KMC
 - EGCS
 - PSYQ
-- MWCC
+- MWCCPS2
 - EEGCC
 
 #### Usage

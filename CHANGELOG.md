@@ -3,7 +3,7 @@
 ### 0.27.4
 
 * Add compiler options supported by spimdisasm.
-  * New compilers: `KMC` (n64), `EGCS` (iQue), `PSYQ` (PS1) and `MWCC` (PS2)
+  * New compilers: `KMC` (n64), `EGCS` (iQue), `PSYQ` (PS1) and `MWCCPS2` (PS2)
 
 ### 0.27.3
 

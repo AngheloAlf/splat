@@ -51,7 +51,7 @@ EGCS = Compiler(
 PSYQ = Compiler("PSYQ")
 
 # PS2
-MWCC = Compiler("MWCC")
+MWCCPS2 = Compiler("MWCCPS2")
 EEGCC = Compiler("EEGCC")
 
 compiler_for_name: Dict[str, Compiler] = {
@@ -63,7 +63,7 @@ compiler_for_name: Dict[str, Compiler] = {
         KMC,
         EGCS,
         PSYQ,
-        MWCC,
+        MWCCPS2,
         EEGCC,
     ]
 }
