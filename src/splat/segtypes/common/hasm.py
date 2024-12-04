@@ -8,7 +8,7 @@ from ...util import options
 
 class CommonSegHasm(CommonSegAsm):
     def out_path(self) -> Optional[Path]:
-        if options.opts.hasm_in_src_path:
+        if options.opts.hasm_in_src_path and not options.opts.disassemble_all:
             return options.opts.src_path / self.dir / f"{self.name}.s"
 
         return super().out_path()
