@@ -36,6 +36,8 @@ class CommonSegHasm(CommonSegAsm):
                         f.write(line + "\n")
 
                     settings = spimdisasm.FunctionDisplaySettings()
-                    for i in range(self.spim_section.get_section().sym_count()):
+                    sym_count = self.spim_section.get_section().sym_count()
+                    for i in range(sym_count):
                         f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
-                        f.write("\n")
+                        if i + 1 != sym_count:
+                            f.write("\n")
