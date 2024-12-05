@@ -1,10 +1,11 @@
 from pathlib import Path
 from typing import Optional, List
 
-from ...util import options
+from ...util import options, symbols
 
 from .codesubsegment import CommonSegCodeSubsegment
 
+import spimdisasm
 
 class CommonSegAsm(CommonSegCodeSubsegment):
     @staticmethod
@@ -56,4 +57,8 @@ class CommonSegAsm(CommonSegCodeSubsegment):
                 with open(out_path, "w", newline="\n") as f:
                     for line in self.get_file_header():
                         f.write(line + "\n")
-                    f.write(self.spim_section.disassemble())
+
+                    settings = spimdisasm.FunctionDisplaySettings()
+                    for i in range(self.spim_section.get_section().sym_count()):
+                        f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
+                        f.write("\n")

@@ -55,7 +55,7 @@ class CommonSegGcc_except_table(CommonSegData):
             self.rom_end,
             self.vram_start,
             self.name,
-            rom_bytes,
+            rom_bytes[self.rom_start:self.rom_end],
             segment_rom_start,
             self.get_exclusive_ram_id(),
         )

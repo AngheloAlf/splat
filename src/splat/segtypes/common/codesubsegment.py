@@ -11,6 +11,7 @@ from ..segment import Segment, parse_segment_vram
 
 from ...disassembler.disassembler_section import DisassemblerSection, make_text_section
 
+import spimdisasm
 
 # abstract class for c, asm, data, etc
 class CommonSegCodeSubsegment(Segment):
@@ -53,6 +54,7 @@ class CommonSegCodeSubsegment(Segment):
     def configure_disassembler_section(
         self, disassembler_section: DisassemblerSection
     ) -> None:
+        return
         "Allows to configure the section before running the analysis on it"
 
         section = disassembler_section.get_section()
@@ -90,7 +92,7 @@ class CommonSegCodeSubsegment(Segment):
             self.rom_end,
             self.vram_start,
             self.name,
-            rom_bytes,
+            rom_bytes[self.rom_start:self.rom_end],
             segment_rom_start,
             self.get_exclusive_ram_id(),
         )
@@ -100,6 +102,7 @@ class CommonSegCodeSubsegment(Segment):
         self.configure_disassembler_section(self.spim_section)
 
         self.spim_section.analyze()
+        return
         self.spim_section.set_comment_offset(self.rom_start)
 
         for func in self.spim_section.get_section().symbolList:
@@ -109,7 +112,7 @@ class CommonSegCodeSubsegment(Segment):
 
     def process_insns(
         self,
-        func_spim: spimdisasm.mips.symbols.SymbolFunction,
+        func_spim,
     ):
         assert isinstance(self.parent, CommonSegCode)
         assert func_spim.vram is not None
@@ -156,6 +159,7 @@ class CommonSegCodeSubsegment(Segment):
                     )
 
     def print_file_boundaries(self):
+        return
         if not self.show_file_boundaries or not self.spim_section:
             return
 

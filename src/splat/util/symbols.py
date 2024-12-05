@@ -21,7 +21,7 @@ ignored_addresses: Set[int] = set()
 to_mark_as_defined: Set[str] = set()
 
 # Initialize a spimdisasm context, used to store symbols and functions
-spim_context = spimdisasm.common.Context()
+spim_context = None
 
 TRUEY_VALS = ["true", "on", "yes", "y"]
 FALSEY_VALS = ["false", "off", "no", "n"]
@@ -152,7 +152,8 @@ def handle_sym_addrs(
                                     log.write(
                                         [
                                             *splat_sym_types,
-                                            *spimdisasm.common.gKnownTypes,
+                                            # *spimdisasm.common.gKnownTypes,
+                                            "s8", "u8", "s16", "u16", "s32", "u32", "s64", "u64", "f32", "f64", "asciz", "char",
                                         ]
                                     )
                                     log.write(
@@ -323,14 +324,14 @@ def initialize(all_segments: "List[Segment]"):
                 handle_sym_addrs(path, sym_addrs_lines, all_segments)
 
 
-def initialize_spim_context(all_segments: "List[Segment]") -> None:
+def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> None:
     global_vrom_start = None
     global_vrom_end = None
     global_vram_start = options.opts.global_vram_start
     global_vram_end = options.opts.global_vram_end
-    overlay_segments: Set[spimdisasm.common.SymbolsSegment] = set()
+    # overlay_segments: Set[spimdisasm.common.SymbolsSegment] = set()
 
-    spim_context.bannedSymbols |= ignored_addresses
+    # spim_context.bannedSymbols |= ignored_addresses
 
     from ..segtypes.common.code import CommonSegCode
 
@@ -366,9 +367,11 @@ def initialize_spim_context(all_segments: "List[Segment]") -> None:
             elif global_vram_end < segment.vram_end:
                 global_vram_end = segment.vram_end
 
+                """
                 if len(overlay_segments) > 0:
                     # Global segment *after* overlay segments?
                     global_segments_after_overlays.append(segment)
+                """
 
             if global_vrom_start is None:
                 global_vrom_start = segment.rom_start
@@ -383,6 +386,7 @@ def initialize_spim_context(all_segments: "List[Segment]") -> None:
         elif segment.vram_start != segment.vram_end:
             # Do not tell to spimdisasm about zero-sized segments.
 
+            """
             spim_segment = spim_context.addOverlaySegment(
                 ram_id,
                 segment.rom_start,
@@ -396,49 +400,48 @@ def initialize_spim_context(all_segments: "List[Segment]") -> None:
                     add_symbol_to_spim_segment(spim_segment, sym)
 
             overlay_segments.add(spim_segment)
+            """
 
-    if (
-        global_vram_start is not None
-        and global_vram_end is not None
-        and global_vrom_start is not None
-        and global_vrom_end is not None
-    ):
-        spim_context.changeGlobalSegmentRanges(
-            global_vrom_start, global_vrom_end, global_vram_start, global_vram_end
+    assert global_vram_start is not None and global_vram_end is not None and global_vrom_start is not None and global_vrom_end is not None
+
+    global_config = spimdisasm.GlobalConfig(spimdisasm.Endian.Big)
+    global_ranges = spimdisasm.RomVramRange(global_vrom_start, global_vrom_end, global_vram_start, global_vram_end)
+    context_builder = spimdisasm.ContextBuilder(global_config, global_ranges)
+
+    """
+    overlaps_found = False
+    # Check the vram range of the global segment does not overlap with any overlay segment
+    for ovl_segment in overlay_segments:
+        assert (
+            ovl_segment.vramStart <= ovl_segment.vramEnd
+        ), f"{ovl_segment.vramStart:08X} {ovl_segment.vramEnd:08X}"
+        if (
+            ovl_segment.vramEnd > global_vram_start
+            and global_vram_end > ovl_segment.vramStart
+        ):
+            log.write(
+                f"Error: the vram range ([0x{ovl_segment.vramStart:08X}, 0x{ovl_segment.vramEnd:08X}]) of the non-global segment at rom address 0x{ovl_segment.vromStart:X} overlaps with the global vram range ([0x{global_vram_start:08X}, 0x{global_vram_end:08X}])",
+                status="warn",
+            )
+            overlaps_found = True
+    if overlaps_found:
+        log.write(
+            f"Many overlaps between non-global and global segments were found.",
         )
-
-        overlaps_found = False
-        # Check the vram range of the global segment does not overlap with any overlay segment
-        for ovl_segment in overlay_segments:
-            assert (
-                ovl_segment.vramStart <= ovl_segment.vramEnd
-            ), f"{ovl_segment.vramStart:08X} {ovl_segment.vramEnd:08X}"
-            if (
-                ovl_segment.vramEnd > global_vram_start
-                and global_vram_end > ovl_segment.vramStart
-            ):
-                log.write(
-                    f"Error: the vram range ([0x{ovl_segment.vramStart:08X}, 0x{ovl_segment.vramEnd:08X}]) of the non-global segment at rom address 0x{ovl_segment.vromStart:X} overlaps with the global vram range ([0x{global_vram_start:08X}, 0x{global_vram_end:08X}])",
-                    status="warn",
-                )
-                overlaps_found = True
-        if overlaps_found:
+        log.write(
+            f"This is usually caused by missing `exclusive_ram_id` tags on segments that have a higher vram address than other `exclusive_ram_id`-tagged segments"
+        )
+        if len(global_segments_after_overlays) > 0:
             log.write(
-                f"Many overlaps between non-global and global segments were found.",
+                f"These segments are the main suspects for missing a `exclusive_ram_id` tag:",
+                status="warn",
             )
-            log.write(
-                f"This is usually caused by missing `exclusive_ram_id` tags on segments that have a higher vram address than other `exclusive_ram_id`-tagged segments"
-            )
-            if len(global_segments_after_overlays) > 0:
-                log.write(
-                    f"These segments are the main suspects for missing a `exclusive_ram_id` tag:",
-                    status="warn",
-                )
-                for seg in global_segments_after_overlays:
-                    log.write(f"    '{seg.name}', rom: 0x{seg.rom_start:06X}")
-            else:
-                log.write(f"No suspected segments??", status="warn")
-            log.error("Stopping due to the above errors")
+            for seg in global_segments_after_overlays:
+                log.write(f"    '{seg.name}', rom: 0x{seg.rom_start:06X}")
+        else:
+            log.write(f"No suspected segments??", status="warn")
+        log.error("Stopping due to the above errors")
+    """
 
     # pass the global symbols to spimdisasm
     for segment in all_segments:
@@ -452,7 +455,7 @@ def initialize_spim_context(all_segments: "List[Segment]") -> None:
 
         for symbols_list in segment.seg_symbols.values():
             for sym in symbols_list:
-                add_symbol_to_spim_segment(spim_context.globalSegment, sym)
+                add_symbol_to_context_builder(context_builder, sym)
 
     if global_vram_start and global_vram_end:
         # Pass global symbols to spimdisasm that are not part of any segment on the binary we are splitting (for psx and psp)
@@ -465,12 +468,71 @@ def initialize_spim_context(all_segments: "List[Segment]") -> None:
                 # Not global
                 continue
 
-            add_symbol_to_spim_segment(spim_context.globalSegment, sym)
+            add_symbol_to_context_builder(context_builder, sym)
+
+    context_builder_overlay = context_builder.process()
+    # TODO: do not ignore overlays
+
+    context_builder_finder_heater = context_builder_overlay.process()
+    for seg in all_segments:
+        initialize_spim_context_do_segment(seg, rom_bytes, context_builder_finder_heater)
+
+    context_builder_finder_heater_overlays = context_builder_finder_heater.process()
+    # TODO: do not ignore overlays
+
+    global spim_context
+    spim_context = context_builder_finder_heater_overlays.build()
+
+def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, context_builder_finder_heater):
+    from ..segtypes.common.group import CommonSegGroup
+    from ..segtypes.common.code import CommonSegCode
+
+    if isinstance(seg, CommonSegGroup):
+        for subseg in seg.subsegments:
+            initialize_spim_context_do_segment(subseg, rom_bytes, context_builder_finder_heater)
+    elif isinstance(seg, CommonSegCode) and seg.size != 0:
+        if seg.is_text():
+            settings = spimdisasm.SectionExecutableSettings()
+            context_builder_finder_heater.preanalyze_text(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
+        elif seg.is_rodata():
+            settings = spimdisasm.SectionDataSettings()
+            context_builder_finder_heater.py_preanalyze_rodata(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
+        elif seg.get_linker_section() == ".gcc_except_table":
+            settings = spimdisasm.SectionDataSettings()
+            context_builder_finder_heater.preanalyze_gcc_except_table(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
+        elif seg.is_data():
+            settings = spimdisasm.SectionDataSettings()
+            context_builder_finder_heater.preanalyze_data(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
 
 
+def add_symbol_to_context_builder(builder, sym: "Symbol"):
+    vram = sym.vram_start
+    rom = spimdisasm.RomAddress(sym.rom) if sym.rom is not None else None
+    if sym.type == "func":
+        builder.add_function(
+            sym.name, vram, rom
+        )
+    elif sym.type == "jtbl":
+        builder.add_jumptable(
+            sym.name, vram, rom
+        )
+    elif sym.type == "jtbl_label":
+        builder.add_jumptable_label(
+            sym.name, vram, rom
+        )
+    elif sym.type == "label":
+        builder.add_branch_label(
+            sym.name, vram, rom
+        )
+    else:
+        builder.add_symbol(
+            sym.name, vram, rom
+        )
+
+"""
 def add_symbol_to_spim_segment(
-    segment: spimdisasm.common.SymbolsSegment, sym: "Symbol"
-) -> spimdisasm.common.ContextSymbol:
+    segment, sym: "Symbol"
+):
     if sym.type == "func":
         context_sym = segment.addFunction(
             sym.vram_start, isAutogenerated=not sym.user_declared, vromAddress=sym.rom
@@ -522,11 +584,12 @@ def add_symbol_to_spim_segment(
         context_sym.visibility = sym.given_visibility
 
     return context_sym
+"""
 
 
 def add_symbol_to_spim_section(
-    section: spimdisasm.mips.sections.SectionBase, sym: "Symbol"
-) -> spimdisasm.common.ContextSymbol:
+    section, sym: "Symbol"
+):
     if sym.type == "func":
         context_sym = section.addFunction(
             sym.vram_start, isAutogenerated=not sym.user_declared, symbolVrom=sym.rom
@@ -573,7 +636,7 @@ def add_symbol_to_spim_section(
 
 
 def create_symbol_from_spim_symbol(
-    segment: "Segment", context_sym: spimdisasm.common.ContextSymbol
+    segment: "Segment", context_sym
 ) -> "Symbol":
     in_segment = False
 

@@ -3,7 +3,9 @@ from typing import Optional
 
 from .asm import CommonSegAsm
 
-from ...util import options
+from ...util import options, symbols
+
+import spimdisasm
 
 
 class CommonSegHasm(CommonSegAsm):
@@ -32,4 +34,8 @@ class CommonSegHasm(CommonSegAsm):
                 with open(out_path, "w", newline="\n") as f:
                     for line in self.get_file_header():
                         f.write(line + "\n")
-                    f.write(self.spim_section.disassemble())
+
+                    settings = spimdisasm.FunctionDisplaySettings()
+                    for i in range(self.spim_section.get_section().sym_count()):
+                        f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
+                        f.write("\n")

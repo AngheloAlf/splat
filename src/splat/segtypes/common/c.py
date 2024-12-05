@@ -184,8 +184,14 @@ class CommonSegC(CommonSegCodeSubsegment):
                 with asm_out_path.open("w", newline="\n") as f:
                     for line in self.get_file_header():
                         f.write(line + "\n")
-                    f.write(self.spim_section.disassemble())
+                    settings = spimdisasm.FunctionDisplaySettings()
+                    for i in range(self.spim_section.get_section().sym_count()):
+                        f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
+                        f.write("\n")
 
+            if True:
+                # The rest of the cod will crash
+                return
 
             asm_out_dir = options.opts.nonmatchings_path / self.dir
             matching_asm_out_dir = options.opts.matchings_path / self.dir
@@ -198,7 +204,7 @@ class CommonSegC(CommonSegCodeSubsegment):
 
             # We want to know if this C section has a corresponding rodata section so we can migrate its rodata
             rodata_section_type = ""
-            rodata_spim_segment: Optional[spimdisasm.mips.sections.SectionRodata] = None
+            rodata_spim_segment: Optional = None
             if options.opts.migrate_rodata_to_functions:
                 # We don't know if the rodata section is .rodata or .rdata, so we need to check both
                 for sect in [".rodata", ".rdata"]:
@@ -319,8 +325,8 @@ class CommonSegC(CommonSegCodeSubsegment):
 
     def check_gaps_in_migrated_rodata(
         self,
-        func: spimdisasm.mips.symbols.SymbolFunction,
-        rodata_list: List[spimdisasm.mips.symbols.SymbolBase],
+        func,
+        rodata_list: List,
     ):
         for index in range(len(rodata_list) - 1):
             rodata_sym = rodata_list[index]
@@ -342,7 +348,7 @@ class CommonSegC(CommonSegCodeSubsegment):
 
     def create_c_asm_file(
         self,
-        func_rodata_entry: spimdisasm.mips.FunctionRodataEntry,
+        func_rodata_entry,
         out_dir: Path,
         func_sym: Symbol,
     ):
@@ -380,7 +386,7 @@ class CommonSegC(CommonSegCodeSubsegment):
 
     def create_unmigrated_rodata_file(
         self,
-        spim_rodata_sym: spimdisasm.mips.symbols.SymbolBase,
+        spim_rodata_sym,
         out_dir: Path,
         rodata_sym: Symbol,
     ):
@@ -423,7 +429,7 @@ class CommonSegC(CommonSegCodeSubsegment):
     def get_c_lines_for_function(
         self,
         sym: Symbol,
-        spim_sym: spimdisasm.mips.symbols.SymbolFunction,
+        spim_sym,
         asm_out_dir: Path,
     ) -> List[str]:
         c_lines = []
@@ -453,7 +459,7 @@ class CommonSegC(CommonSegCodeSubsegment):
         self,
         asm_out_dir: Path,
         c_path: Path,
-        symbols_entries: List[spimdisasm.mips.FunctionRodataEntry],
+        symbols_entries: List,
     ):
         c_lines = self.get_c_preamble()
 
@@ -489,7 +495,7 @@ class CommonSegC(CommonSegCodeSubsegment):
         c_path: Path,
         asm_out_dir: Path,
         is_new_c_file: bool,
-        symbols_entries: List[spimdisasm.mips.FunctionRodataEntry],
+        symbols_entries: List,
     ):
         if not options.opts.create_asm_dependencies:
             return

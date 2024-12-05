@@ -27,8 +27,8 @@ class CommonSegRodata(CommonSegData):
         return True
 
     def get_possible_text_subsegment_for_symbol(
-        self, rodata_sym: spimdisasm.mips.symbols.SymbolBase
-    ) -> Optional[Tuple[Segment, spimdisasm.common.ContextSymbol]]:
+        self, rodata_sym
+    ):
         # Check if this rodata segment does not have a corresponding code file, try to look for one
 
         if self.sibling is not None or not options.opts.pair_rodata_to_text:
@@ -51,6 +51,7 @@ class CommonSegRodata(CommonSegData):
         self, disassembler_section: DisassemblerSection
     ) -> None:
         "Allows to configure the section before running the analysis on it"
+        return
 
         section = disassembler_section.get_section()
 
@@ -89,7 +90,7 @@ class CommonSegRodata(CommonSegData):
             self.rom_end,
             self.vram_start,
             self.name,
-            rom_bytes,
+            rom_bytes[self.rom_start:self.rom_end],
             segment_rom_start,
             self.get_exclusive_ram_id(),
         )
@@ -105,6 +106,8 @@ class CommonSegRodata(CommonSegData):
 
         last_jumptable_addr_remainder = 0
         misaligned_jumptable_offsets: List[int] = []
+
+        return
 
         for symbol in self.spim_section.get_section().symbolList:
             generated_symbol = symbols.create_symbol_from_spim_symbol(

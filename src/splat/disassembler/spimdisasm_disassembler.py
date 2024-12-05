@@ -10,6 +10,8 @@ class SpimdisasmDisassembler(disassembler.Disassembler):
     SPIMDISASM_MIN = (1, 31, 0)
 
     def configure(self):
+        return
+
         # Configure spimdisasm
         spimdisasm.common.GlobalConfig.PRODUCE_SYMBOLS_PLUS_OFFSET = True
         spimdisasm.common.GlobalConfig.TRUST_USER_FUNCTIONS = True
@@ -120,14 +122,14 @@ class SpimdisasmDisassembler(disassembler.Disassembler):
         )
 
     def check_version(self, skip_version_check: bool, splat_version: str):
-        if not skip_version_check and spimdisasm.__version_info__ < self.SPIMDISASM_MIN:
-            log.error(
-                f"splat {splat_version} requires as minimum spimdisasm {self.SPIMDISASM_MIN}, but the installed version is {spimdisasm.__version_info__}"
-            )
+        # if not skip_version_check and spimdisasm.__version_info__ < self.SPIMDISASM_MIN:
+        #     log.error(
+        #         f"splat {splat_version} requires as minimum spimdisasm {self.SPIMDISASM_MIN}, but the installed version is {spimdisasm.__version_info__}"
+        #     )
 
         log.write(
-            f"splat {splat_version} (powered by spimdisasm {spimdisasm.__version__})"
+            f"splat {splat_version} (powered by spimdisasm 2.0.0-dev0)"
         )
 
     def known_types(self) -> Set[str]:
-        return spimdisasm.common.gKnownTypes
+        return {"s8", "u8", "s16", "u16", "s32", "u32", "s64", "u64", "f32", "f64", "asciz", "char"}

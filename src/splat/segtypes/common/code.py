@@ -277,9 +277,11 @@ class CommonSegCode(CommonSegGroup):
         # Always scan code first
         for sub in self.subsegments:
             if sub.is_text() and sub.should_scan():
+                # print(sub)
                 sub.scan(rom_bytes)
 
         # Scan everyone else
         for sub in self.subsegments:
             if not sub.is_text() and sub.should_scan():
+                # print(sub)
                 sub.scan(rom_bytes)

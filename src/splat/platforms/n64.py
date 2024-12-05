@@ -2,6 +2,8 @@ from ..util import options, symbols
 
 
 def init(target_bytes: bytes):
+    return
+    # TODO
     symbols.spim_context.fillDefaultBannedSymbols()
 
     if options.opts.libultra_symbols:

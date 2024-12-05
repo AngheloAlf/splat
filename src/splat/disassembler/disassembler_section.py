@@ -78,17 +78,19 @@ class DisassemblerSection(ABC):
 
 class SpimdisasmDisassemberSection(DisassemblerSection):
     def __init__(self):
-        self.spim_section: Optional[spimdisasm.mips.sections.SectionBase] = None
+        self.spim_section = None
 
     def disassemble(self) -> str:
-        assert self.spim_section is not None
-        return self.spim_section.disassemble()
+        assert False
+        # return self.spim_section.disassemble()
 
     def analyze(self):
+        return
         assert self.spim_section is not None
         self.spim_section.analyze()
 
     def set_comment_offset(self, rom_start: int):
+        return
         assert self.spim_section is not None
         self.spim_section.setCommentOffset(rom_start)
 
@@ -102,15 +104,18 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        self.spim_section = spimdisasm.mips.sections.SectionBss(
-            symbols.spim_context,
-            rom_start,
-            rom_end,
+        settings = spimdisasm.SectionNoloadSettings()
+        parent_segment_info = spimdisasm.ParentSegmentInfo(
+            spimdisasm.RomAddress(segment_rom_start),
+            vram_start, # TODO: use segment's vram instead
+            spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
+        )
+        self.spim_section = symbols.spim_context.create_section_bss(
+            settings,
+            name,
             vram_start,
             bss_end,
-            name,
-            segment_rom_start,
-            exclusive_ram_id,
+            parent_segment_info,
         )
 
     def make_data_section(
@@ -123,18 +128,22 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        self.spim_section = spimdisasm.mips.sections.SectionData(
-            symbols.spim_context,
-            rom_start,
-            rom_end,
-            vram_start,
+        settings = spimdisasm.SectionDataSettings()
+        parent_segment_info = spimdisasm.ParentSegmentInfo(
+            spimdisasm.RomAddress(segment_rom_start),
+            vram_start, # TODO: use segment's vram instead
+            spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
+        )
+        self.spim_section = symbols.spim_context.create_section_data(
+            settings,
             name,
             rom_bytes,
-            segment_rom_start,
-            exclusive_ram_id,
+            spimdisasm.RomAddress(rom_start),
+            vram_start,
+            parent_segment_info,
         )
 
-    def get_section(self) -> Optional[spimdisasm.mips.sections.SectionBase]:
+    def get_section(self):
         return self.spim_section
 
     def make_rodata_section(
@@ -147,15 +156,19 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        self.spim_section = spimdisasm.mips.sections.SectionRodata(
-            symbols.spim_context,
-            rom_start,
-            rom_end,
-            vram_start,
+        settings = spimdisasm.SectionDataSettings()
+        parent_segment_info = spimdisasm.ParentSegmentInfo(
+            spimdisasm.RomAddress(segment_rom_start),
+            vram_start, # TODO: use segment's vram instead
+            spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
+        )
+        self.spim_section = symbols.spim_context.create_section_rodata(
+            settings,
             name,
             rom_bytes,
-            segment_rom_start,
-            exclusive_ram_id,
+            spimdisasm.RomAddress(rom_start),
+            vram_start,
+            parent_segment_info,
         )
 
     def make_text_section(
@@ -168,15 +181,19 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        self.spim_section = spimdisasm.mips.sections.SectionText(
-            symbols.spim_context,
-            rom_start,
-            rom_end,
-            vram_start,
+        settings = spimdisasm.SectionExecutableSettings()
+        parent_segment_info = spimdisasm.ParentSegmentInfo(
+            spimdisasm.RomAddress(segment_rom_start),
+            vram_start, # TODO: use segment's vram instead
+            spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
+        )
+        self.spim_section = symbols.spim_context.create_section_text(
+            settings,
             name,
             rom_bytes,
-            segment_rom_start,
-            exclusive_ram_id,
+            spimdisasm.RomAddress(rom_start),
+            vram_start,
+            parent_segment_info,
         )
 
     def make_gcc_except_table_section(
@@ -189,15 +206,19 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        self.spim_section = spimdisasm.mips.sections.SectionGccExceptTable(
-            symbols.spim_context,
-            rom_start,
-            rom_end,
-            vram_start,
+        settings = spimdisasm.SectionDataSettings()
+        parent_segment_info = spimdisasm.ParentSegmentInfo(
+            spimdisasm.RomAddress(segment_rom_start),
+            vram_start, # TODO: use segment's vram instead
+            spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
+        )
+        self.spim_section = symbols.spim_context.create_section_gcc_except_table(
+            settings,
             name,
             rom_bytes,
-            segment_rom_start,
-            exclusive_ram_id,
+            spimdisasm.RomAddress(rom_start),
+            vram_start,
+            parent_segment_info,
         )
 
 

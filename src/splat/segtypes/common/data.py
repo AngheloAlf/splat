@@ -7,6 +7,7 @@ from .group import CommonSegGroup
 
 from ...disassembler.disassembler_section import DisassemblerSection, make_data_section
 
+import spimdisasm
 
 class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
     @staticmethod
@@ -61,7 +62,11 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
 
             f.write(f"{self.get_section_asm_line()}\n\n")
 
-            f.write(self.spim_section.disassemble())
+            settings = spimdisasm.SymDataDisplaySettings()
+            for i in range(self.spim_section.get_section().sym_count()):
+                f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
+                f.write("\n")
+
 
     def should_self_split(self) -> bool:
         return options.opts.is_mode_active("data")
@@ -88,6 +93,7 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
         self, disassembler_section: DisassemblerSection
     ) -> None:
         "Allows to configure the section before running the analysis on it"
+        return
 
         section = disassembler_section.get_section()
 
@@ -126,7 +132,7 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
             self.rom_end,
             self.vram_start,
             self.name,
-            rom_bytes,
+            rom_bytes[self.rom_start:self.rom_end],
             segment_rom_start,
             self.get_exclusive_ram_id(),
         )
@@ -139,6 +145,7 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
         self.spim_section.set_comment_offset(self.rom_start)
 
         rodata_encountered = False
+        return
 
         for symbol in self.spim_section.get_section().symbolList:
             symbols.create_symbol_from_spim_symbol(

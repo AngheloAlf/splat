@@ -8,6 +8,7 @@ from ...disassembler.disassembler_section import DisassemblerSection, make_bss_s
 
 # If `options.opts.ld_bss_is_noload` is False, then this segment behaves like a `CommonSegData`
 
+import spimdisasm
 
 class CommonSegBss(CommonSegData):
     def get_linker_section(self) -> str:
@@ -82,6 +83,7 @@ class CommonSegBss(CommonSegData):
         self.configure_disassembler_section(self.spim_section)
 
         self.spim_section.analyze()
+        return
         self.spim_section.set_comment_offset(self.rom_start)
 
         for spim_sym in self.spim_section.get_section().symbolList:
@@ -93,3 +95,27 @@ class CommonSegBss(CommonSegData):
         if not options.opts.ld_bss_is_noload:
             return super().should_scan()
         return options.opts.is_mode_active("code") and self.vram_start is not None
+
+    def split(self, rom_bytes: bytes):
+        if self.type.startswith(".") and not options.opts.disassemble_all:
+            return
+
+        if self.spim_section is None or not self.should_self_split():
+            return
+
+        path = self.asm_out_path()
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with path.open("w", newline="\n") as f:
+            f.write('.include "macro.inc"\n\n')
+            preamble = options.opts.generated_s_preamble
+            if preamble:
+                f.write(preamble + "\n")
+
+            f.write(f"{self.get_section_asm_line()}\n\n")
+
+            settings = spimdisasm.SymNoloadDisplaySettings()
+            for i in range(self.spim_section.get_section().sym_count()):
+                f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
+                f.write("\n")

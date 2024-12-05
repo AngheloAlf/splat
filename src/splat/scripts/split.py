@@ -246,7 +246,7 @@ def initialize_platform(rom_bytes: bytes):
     return platform_module
 
 
-def initialize_all_symbols(all_segments: List[Segment]):
+def initialize_all_symbols(all_segments: List[Segment], rom_bytes: bytes):
     # Load and process symbols
     symbols.initialize(all_segments)
     relocs.initialize()
@@ -255,8 +255,8 @@ def initialize_all_symbols(all_segments: List[Segment]):
     assign_symbols_to_segments()
 
     if options.opts.is_mode_active("code"):
-        symbols.initialize_spim_context(all_segments)
-        relocs.initialize_spim_context()
+        symbols.initialize_spim_context(all_segments, rom_bytes)
+        # relocs.initialize_spim_context()
 
 
 def do_scan(
@@ -276,6 +276,7 @@ def do_scan(
             typ = "unk"
 
         stats.add_size(typ, segment.size)
+        # print()
 
         if segment.should_scan():
             # Check cache but don't write anything
@@ -283,6 +284,7 @@ def do_scan(
                 continue
 
             segment.did_run = True
+            # print(segment)
             segment.scan(rom_bytes)
 
             processed_segments.append(segment)
@@ -489,7 +491,7 @@ def dump_symbols() -> None:
                 f.write("None,")
             f.write(f"{s.defined},{s.user_declared},{s.referenced},{s.extract}\n")
 
-    symbols.spim_context.saveContextToFile(splat_hidden_folder / "spim_context.csv")
+    # symbols.spim_context.saveContextToFile(splat_hidden_folder / "spim_context.csv")
 
 
 def main(
@@ -524,7 +526,7 @@ def main(
     # Initialize segments
     all_segments = initialize_segments(config["segments"])
 
-    initialize_all_symbols(all_segments)
+    initialize_all_symbols(all_segments, rom_bytes)
 
     # Resolve raster/palette siblings
     if options.opts.is_mode_active("img"):
