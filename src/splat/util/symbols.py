@@ -506,27 +506,74 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, context
 
 
 def add_symbol_to_context_builder(builder, sym: "Symbol"):
+    attributes = spimdisasm.SymAttributes()
+
+    if sym.type in ("u8", "s8"):
+        attributes.set_typ(spimdisasm.SymbolType.Byte)
+    elif sym.type in ("u16", "s16"):
+        attributes.set_typ(spimdisasm.SymbolType.Short)
+    elif sym.type in ("u32", "s32"):
+        attributes.set_typ(spimdisasm.SymbolType.Word)
+    elif sym.type in ("u64", "s64"):
+        attributes.set_typ(spimdisasm.SymbolType.DWord)
+    elif sym.type == "f32":
+        attributes.set_typ(spimdisasm.SymbolType.Float32)
+    elif sym.type == "f64":
+        attributes.set_typ(spimdisasm.SymbolType.Float64)
+    elif sym.type in ("char", "asciz", "String", "Char", "char*"):
+        attributes.set_typ(spimdisasm.SymbolType.CString)
+    elif sym.type is not None and sym.type not in ("func", "jtbl", "jtbl_label", "label"):
+        attributes.set_typ(spimdisasm.SymbolType.UserCustom)
+
+    if sym.defined:
+        attributes.set_defined(True)
+    if sym.given_size is not None:
+        attributes.set_size(spimdisasm.Size(sym.given_size))
+
+    if sym.function_owner is not None:
+        attributes.set_migration_behavior(spimdisasm.RodataMigrationBehavior.MigrateToSpecificFunction(sym.function_owner))
+    elif sym.force_migration:
+        attributes.set_migration_behavior(spimdisasm.RodataMigrationBehavior.ForceMigrate())
+    elif sym.force_not_migration:
+        attributes.set_migration_behavior(spimdisasm.RodataMigrationBehavior.ForceNotMigrate())
+
+    if sym.allow_addend:
+        attributes.set_allow_addend(True)
+    if sym.dont_allow_addend:
+        attributes.set_dont_allow_addend(True)
+    if sym.can_reference is not None:
+        attributes.set_can_reference(sym.can_reference)
+    if sym.can_be_referenced is not None:
+        attributes.set_can_be_referenced(sym.can_be_referenced)
+
+    if sym.given_name_end:
+        attributes.set_name_end(sym.given_name_end)
+    if sym.given_visibility:
+        attributes.set_visibility(sym.given_visibility)
+
+
+
     vram = sym.vram_start
     rom = spimdisasm.RomAddress(sym.rom) if sym.rom is not None else None
     if sym.type == "func":
         builder.add_function(
-            sym.name, vram, rom
+            sym.name, vram, rom, attributes
         )
     elif sym.type == "jtbl":
         builder.add_jumptable(
-            sym.name, vram, rom
+            sym.name, vram, rom, attributes
         )
     elif sym.type == "jtbl_label":
         builder.add_jumptable_label(
-            sym.name, vram, rom
+            sym.name, vram, rom, attributes
         )
     elif sym.type == "label":
         builder.add_branch_label(
-            sym.name, vram, rom
+            sym.name, vram, rom, attributes
         )
     else:
         builder.add_symbol(
-            sym.name, vram, rom
+            sym.name, vram, rom, attributes
         )
 
 """
