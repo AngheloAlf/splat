@@ -538,9 +538,10 @@ def add_symbol_to_context_builder(builder, sym: "Symbol"):
         attributes.set_migration_behavior(spimdisasm.RodataMigrationBehavior.ForceNotMigrate())
 
     if sym.allow_addend:
-        attributes.set_allow_addend(True)
-    if sym.dont_allow_addend:
-        attributes.set_dont_allow_addend(True)
+        attributes.set_allow_ref_with_addend(True)
+    elif sym.dont_allow_addend:
+        attributes.set_allow_ref_with_addend(False)
+
     if sym.can_reference is not None:
         attributes.set_can_reference(sym.can_reference)
     if sym.can_be_referenced is not None:
