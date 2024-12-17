@@ -492,16 +492,24 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, context
             initialize_spim_context_do_segment(subseg, rom_bytes, context_builder_finder_heater)
     elif isinstance(seg, CommonSegCode) and seg.size != 0:
         if seg.is_text():
-            settings = spimdisasm.SectionExecutableSettings()
+            selected_compiler = options.opts.compiler
+            spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+            settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler)
             context_builder_finder_heater.preanalyze_text(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
         elif seg.is_rodata():
-            settings = spimdisasm.SectionDataSettings()
+            selected_compiler = options.opts.compiler
+            spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+            settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
             context_builder_finder_heater.py_preanalyze_rodata(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
         elif seg.get_linker_section() == ".gcc_except_table":
-            settings = spimdisasm.SectionDataSettings()
+            selected_compiler = options.opts.compiler
+            spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+            settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
             context_builder_finder_heater.preanalyze_gcc_except_table(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
         elif seg.is_data():
-            settings = spimdisasm.SectionDataSettings()
+            selected_compiler = options.opts.compiler
+            spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+            settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
             context_builder_finder_heater.preanalyze_data(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
 
 

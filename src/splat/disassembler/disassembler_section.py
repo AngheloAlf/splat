@@ -104,7 +104,9 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        settings = spimdisasm.SectionNoloadSettings()
+        selected_compiler = options.opts.compiler
+        spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+        settings = spimdisasm.SectionNoloadSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.RomAddress(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
@@ -128,7 +130,9 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        settings = spimdisasm.SectionDataSettings()
+        selected_compiler = options.opts.compiler
+        spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+        settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.RomAddress(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
@@ -156,7 +160,9 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        settings = spimdisasm.SectionDataSettings()
+        selected_compiler = options.opts.compiler
+        spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+        settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.RomAddress(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
@@ -181,7 +187,9 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        settings = spimdisasm.SectionExecutableSettings()
+        selected_compiler = options.opts.compiler
+        spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+        settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.RomAddress(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
@@ -206,7 +214,9 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         segment_rom_start: int,
         exclusive_ram_id,
     ):
-        settings = spimdisasm.SectionDataSettings()
+        selected_compiler = options.opts.compiler
+        spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
+        settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.RomAddress(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
