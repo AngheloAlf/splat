@@ -133,6 +133,11 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
         settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+
+        encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding)
+        # print(encoding)
+        settings.set_encoding(encoding)
+
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.RomAddress(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
@@ -163,6 +168,11 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
         settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+
+        encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding)
+        # print(encoding)
+        settings.set_encoding(encoding)
+
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.RomAddress(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
