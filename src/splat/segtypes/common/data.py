@@ -147,13 +147,14 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
         self.spim_section.set_comment_offset(self.rom_start)
 
         rodata_encountered = False
-        return
+        # return
 
-        for symbol in self.spim_section.get_section().symbolList:
+        for sym_index in range(self.spim_section.get_section().sym_count()):
             symbols.create_symbol_from_spim_symbol(
-                self.get_most_parent(), symbol.contextSym
+                self.get_most_parent(), *self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
             )
 
+            """
             # Hint to the user that we are now in the .rodata section and no longer in the .data section (assuming rodata follows data)
             if (
                 self.suggestion_rodata_section_start
@@ -170,3 +171,4 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
                     )
                     if symbol.contextSym.vromAddress is not None:
                         print(f"      - [0x{symbol.contextSym.vromAddress:X}, rodata]")
+            """

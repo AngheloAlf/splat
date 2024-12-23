@@ -633,7 +633,6 @@ def add_symbol_to_spim_segment(
         context_sym.allowedToReferenceSymbols = sym.can_reference
     if sym.can_be_referenced is not None:
         context_sym.allowedToBeReferenced = sym.can_be_referenced
-    context_sym.setNameGetCallbackIfUnset(lambda _: sym.name)
     if sym.given_name_end:
         context_sym.nameEnd = sym.given_name_end
     if sym.given_visibility:
@@ -682,7 +681,6 @@ def add_symbol_to_spim_section(
     if sym.force_not_migration:
         context_sym.forceNotMigration = True
     context_sym.functionOwnerForMigration = sym.function_owner
-    context_sym.setNameGetCallbackIfUnset(lambda _: sym.name)
     if sym.given_name_end:
         context_sym.nameEnd = sym.given_name_end
     if sym.given_visibility:
@@ -692,52 +690,57 @@ def add_symbol_to_spim_section(
 
 
 def create_symbol_from_spim_symbol(
-    segment: "Segment", context_sym
+    segment: "Segment",
+    vram: int,
+    rom,
+    name: str,
+    typ,
+    siz,
+    is_defined: bool,
+    reference_counter: int,
+    overlay_category: str,
 ) -> "Symbol":
     in_segment = False
 
     sym_type = None
-    if context_sym.type == spimdisasm.common.SymbolSpecialType.jumptable:
+    if typ == spimdisasm.SymbolType.Jumptable:
         in_segment = True
         sym_type = "jtbl"
-    elif context_sym.type == spimdisasm.common.SymbolSpecialType.function:
+    elif typ == spimdisasm.SymbolType.Function:
         sym_type = "func"
-    elif context_sym.type == spimdisasm.common.SymbolSpecialType.branchlabel:
+    elif typ == spimdisasm.SymbolType.BranchLabel:
         in_segment = True
         sym_type = "label"
-    elif context_sym.type == spimdisasm.common.SymbolSpecialType.jumptablelabel:
+    elif typ == spimdisasm.SymbolType.JumptableLabel:
         in_segment = True
         sym_type = "jtbl_label"
 
     if not in_segment:
         if (
-            context_sym.overlayCategory is None
+            overlay_category is None
             and segment.get_exclusive_ram_id() is None
         ):
-            in_segment = segment.contains_vram(context_sym.vram)
-        elif context_sym.overlayCategory == segment.get_exclusive_ram_id():
-            if context_sym.vromAddress is not None:
-                in_segment = segment.contains_rom(context_sym.vromAddress)
+            in_segment = segment.contains_vram(vram)
+        elif overlay_category == segment.get_exclusive_ram_id():
+            if rom is not None:
+                in_segment = segment.contains_rom(rom)
             else:
-                in_segment = segment.contains_vram(context_sym.vram)
+                in_segment = segment.contains_vram(vram)
 
     sym = segment.create_symbol(
-        context_sym.vram, in_segment, type=sym_type, reference=True
+        vram, in_segment, type=sym_type, reference=True
     )
 
-    if sym.given_name is None and context_sym.name is not None:
-        sym.given_name = context_sym.name
+    if sym.given_name is None and name is not None:
+        sym.given_name = name
 
-    # To keep the symbol name in sync between splat and spimdisasm
-    context_sym.setNameGetCallback(lambda _: sym.name)
-
-    if context_sym.size is not None:
-        sym.given_size = context_sym.getSize()
-    if context_sym.vromAddress is not None:
-        sym.rom = context_sym.getVrom()
-    if context_sym.isDefined:
+    if siz is not None:
+        sym.given_size = siz.inner()
+    if rom is not None:
+        sym.rom = rom.inner()
+    if is_defined:
         sym.defined = True
-    if context_sym.referenceCounter > 0:
+    if reference_counter > 0:
         sym.referenced = True
 
     return sym

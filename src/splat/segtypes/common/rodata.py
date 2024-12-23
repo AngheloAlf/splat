@@ -107,14 +107,13 @@ class CommonSegRodata(CommonSegData):
         last_jumptable_addr_remainder = 0
         misaligned_jumptable_offsets: List[int] = []
 
-        return
-
-        for symbol in self.spim_section.get_section().symbolList:
+        for sym_index in range(self.spim_section.get_section().sym_count()):
             generated_symbol = symbols.create_symbol_from_spim_symbol(
-                self.get_most_parent(), symbol.contextSym
+                self.get_most_parent(), *self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
             )
             generated_symbol.linker_section = self.get_linker_section_linksection()
 
+            continue
             possible_text = self.get_possible_text_subsegment_for_symbol(symbol)
             if possible_text is not None:
                 text_segment, refenceeFunction = possible_text

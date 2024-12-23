@@ -102,13 +102,15 @@ class CommonSegCodeSubsegment(Segment):
         self.configure_disassembler_section(self.spim_section)
 
         self.spim_section.analyze()
-        return
-        self.spim_section.set_comment_offset(self.rom_start)
 
-        for func in self.spim_section.get_section().symbolList:
-            assert isinstance(func, spimdisasm.mips.symbols.SymbolFunction)
+        # self.spim_section.set_comment_offset(self.rom_start)
 
-            self.process_insns(func)
+        for sym_index in range(self.spim_section.get_section().sym_count()):
+            symbols.create_symbol_from_spim_symbol(
+                self.get_most_parent(), *self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
+            )
+        # for func in self.spim_section.get_section().symbolList:
+        #     self.process_insns(func)
 
     def process_insns(
         self,

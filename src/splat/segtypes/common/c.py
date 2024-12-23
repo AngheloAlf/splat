@@ -191,22 +191,19 @@ class CommonSegC(CommonSegCodeSubsegment):
                         if i + 1 != sym_count:
                             f.write("\n")
 
-            if True:
-                # The rest of the cod will crash
-                return
-
             asm_out_dir = options.opts.nonmatchings_path / self.dir
             matching_asm_out_dir = options.opts.matchings_path / self.dir
 
             self.print_file_boundaries()
 
-            assert self.spim_section is not None and isinstance(
-                self.spim_section.get_section(), spimdisasm.mips.sections.SectionText
-            ), f"{self.name}, rom_start:{self.rom_start}, rom_end:{self.rom_end}"
+            # assert self.spim_section is not None and isinstance(
+            #     self.spim_section.get_section(), spimdisasm.mips.sections.SectionText
+            # ), f"{self.name}, rom_start:{self.rom_start}, rom_end:{self.rom_end}"
+            assert self.spim_section is not None, f"{self.name}, rom_start:{self.rom_start}, rom_end:{self.rom_end}"
 
             # We want to know if this C section has a corresponding rodata section so we can migrate its rodata
             rodata_section_type = ""
-            rodata_spim_segment: Optional = None
+            rodata_spim_segment = None
             if options.opts.migrate_rodata_to_functions:
                 # We don't know if the rodata section is .rodata or .rdata, so we need to check both
                 for sect in [".rodata", ".rdata"]:
@@ -242,27 +239,26 @@ class CommonSegC(CommonSegCodeSubsegment):
                     )
 
                     assert rodata_sibling.spim_section is not None, f"{rodata_sibling}"
-                    assert isinstance(
-                        rodata_sibling.spim_section.get_section(),
-                        spimdisasm.mips.sections.SectionRodata,
-                    )
+                    # assert isinstance(
+                    #     rodata_sibling.spim_section.get_section(),
+                    #     spimdisasm.mips.sections.SectionRodata,
+                    # )
                     rodata_spim_segment = rodata_sibling.spim_section.get_section()
 
                     # Stop searching
                     break
 
             # Precompute function-rodata pairings
-            symbols_entries = (
-                spimdisasm.mips.FunctionRodataEntry.getAllEntriesFromSections(
-                    self.spim_section.get_section(), rodata_spim_segment
-                )
+            symbols_entries = spimdisasm.FuncRodataPairing.pair_sections(
+                symbols.spim_context, self.spim_section.get_section(), rodata_spim_segment
             )
 
             is_new_c_file = False
 
             # Check and create the C file
             c_path = self.out_path()
-            if c_path:
+            if c_path and False:
+                # Comment out for now
                 if not c_path.exists() and options.opts.create_c_files:
                     self.create_c_file(asm_out_dir, c_path, symbols_entries)
                     is_new_c_file = True
@@ -273,16 +269,16 @@ class CommonSegC(CommonSegCodeSubsegment):
 
             # Produce the asm files for functions
             for entry in symbols_entries:
-                entry.sectionText = self.get_linker_section_linksection()
-                entry.sectionRodata = rodata_section_type
-                if entry.function is not None:
+                func_info = entry.get_function_name_and_vram(symbols.spim_context, self.spim_section.get_section())
+                if func_info is not None:
+                    func_name, func_vram = func_info
                     if (
-                        entry.function.getName() in self.global_asm_funcs
+                        func_name in self.global_asm_funcs
                         or is_new_c_file
                         or options.opts.disassemble_all
                     ):
                         func_sym = self.get_symbol(
-                            entry.function.vram,
+                            func_vram,
                             in_segment=True,
                             type="func",
                             local_only=True,
@@ -290,30 +286,33 @@ class CommonSegC(CommonSegCodeSubsegment):
                         assert func_sym is not None
 
                         if (
-                            not entry.function.getName() in self.global_asm_funcs
+                            not func_name in self.global_asm_funcs
                             and options.opts.disassemble_all
                             and not is_new_c_file
                         ):
                             self.create_c_asm_file(
-                                entry, matching_asm_out_dir, func_sym
+                                entry, matching_asm_out_dir, func_sym, rodata_spim_segment, rodata_section_type
                             )
                         else:
-                            self.create_c_asm_file(entry, asm_out_dir, func_sym)
+                            self.create_c_asm_file(entry, asm_out_dir, func_sym, rodata_spim_segment, rodata_section_type)
 
                 else:
-                    for spim_rodata_sym in entry.rodataSyms:
+                    rodata_info = entry.get_single_rodata_name_and_vram(symbols.spim_context, rodata_spim_segment)
+                    assert rodata_info is not None
+                    if rodata_info is not None:
+                        rodata_sym_name, rodata_sym_vram = rodata_info
                         if (
-                            spim_rodata_sym.getName() in self.global_asm_rodata_syms
+                            rodata_sym_name in self.global_asm_rodata_syms
                             or is_new_c_file
                             or options.opts.disassemble_all
                         ):
                             rodata_sym = self.get_symbol(
-                                spim_rodata_sym.vram, in_segment=True, local_only=True
+                                rodata_sym_vram, in_segment=True, local_only=True
                             )
                             assert rodata_sym is not None
 
                             self.create_unmigrated_rodata_file(
-                                spim_rodata_sym, asm_out_dir, rodata_sym
+                                entry, asm_out_dir, rodata_sym, rodata_spim_segment, rodata_section_type
                             )
 
     def get_c_preamble(self):
@@ -353,6 +352,8 @@ class CommonSegC(CommonSegCodeSubsegment):
         func_rodata_entry,
         out_dir: Path,
         func_sym: Symbol,
+        rodata_spim_segment,
+        rodata_section_type,
     ):
         outpath = out_dir / self.name / f"{func_sym.filename}.s"
 
@@ -368,29 +369,41 @@ class CommonSegC(CommonSegCodeSubsegment):
                     options.opts.c_newline.join(options.opts.asm_inc_header.split("\n"))
                 )
 
-            named_registers_opt = rabbitizer.config.regNames_namedRegisters
+            # named_registers_opt = rabbitizer.config.regNames_namedRegisters
 
-            rabbitizer.config.regNames_namedRegisters = (
-                options.opts.named_regs_for_c_funcs
+            # rabbitizer.config.regNames_namedRegisters = (
+            #     options.opts.named_regs_for_c_funcs
+            # )
+            disassembled = func_rodata_entry.display(
+                symbols.spim_context, 
+                self.spim_section.get_section(),
+                spimdisasm.FunctionDisplaySettings(),
+                rodata_spim_segment,
+                spimdisasm.SymDataDisplaySettings(),
+                self.get_linker_section_linksection(),
+                rodata_section_type,
+                None,
             )
-            func_rodata_entry.writeToFile(f)
-            rabbitizer.config.regNames_namedRegisters = named_registers_opt
+            f.write(disassembled)
+            # rabbitizer.config.regNames_namedRegisters = named_registers_opt
 
-            if func_rodata_entry.function is not None:
-                self.check_gaps_in_migrated_rodata(
-                    func_rodata_entry.function, func_rodata_entry.rodataSyms
-                )
-                self.check_gaps_in_migrated_rodata(
-                    func_rodata_entry.function, func_rodata_entry.lateRodataSyms
-                )
+            # if func_rodata_entry.function is not None:
+            #     self.check_gaps_in_migrated_rodata(
+            #         func_rodata_entry.function, func_rodata_entry.rodataSyms
+            #     )
+            #     self.check_gaps_in_migrated_rodata(
+            #         func_rodata_entry.function, func_rodata_entry.lateRodataSyms
+            #     )
 
         self.log(f"Disassembled {func_sym.filename} to {outpath}")
 
     def create_unmigrated_rodata_file(
         self,
-        spim_rodata_sym,
+        func_rodata_entry,
         out_dir: Path,
         rodata_sym: Symbol,
+        rodata_spim_segment,
+        rodata_section_type,
     ):
         outpath = out_dir / self.name / f"{rodata_sym.filename}.s"
 
@@ -404,9 +417,18 @@ class CommonSegC(CommonSegCodeSubsegment):
             preamble = options.opts.generated_s_preamble
             if preamble:
                 f.write(preamble + "\n")
-            assert rodata_sym.linker_section is not None, rodata_sym.name
-            f.write(f".section {rodata_sym.linker_section}\n\n")
-            f.write(spim_rodata_sym.disassemble())
+            # assert rodata_sym.linker_section is not None, rodata_sym.name
+            disassembled = func_rodata_entry.display(
+                symbols.spim_context, 
+                self.spim_section.get_section(),
+                spimdisasm.FunctionDisplaySettings(),
+                rodata_spim_segment,
+                spimdisasm.SymDataDisplaySettings(),
+                self.get_linker_section_linksection(),
+                rodata_section_type,
+                None,
+            )
+            f.write(disassembled)
 
         self.log(f"Disassembled {rodata_sym.filename} to {outpath}")
 
