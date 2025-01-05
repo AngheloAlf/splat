@@ -485,33 +485,34 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
 def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, context_builder_finder_heater):
     from ..segtypes.common.group import CommonSegGroup
-    from ..segtypes.common.code import CommonSegCode
+    from ..segtypes.common.codesubsegment import CommonSegCodeSubsegment
 
-    if isinstance(seg, CommonSegGroup):
-        for subseg in seg.subsegments:
-            initialize_spim_context_do_segment(subseg, rom_bytes, context_builder_finder_heater)
-    elif isinstance(seg, CommonSegCode) and seg.size != 0:
+    if isinstance(seg, CommonSegCodeSubsegment) and seg.size is not None and seg.size != 0 and seg.rom_start is not None:
         if seg.is_text():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler)
-            context_builder_finder_heater.preanalyze_text(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
+            context_builder_finder_heater.preanalyze_text(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
         elif seg.is_rodata():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            context_builder_finder_heater.py_preanalyze_rodata(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
+            assert seg.rom_start is not None, seg
+            context_builder_finder_heater.preanalyze_rodata(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
         elif seg.get_linker_section() == ".gcc_except_table":
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            context_builder_finder_heater.preanalyze_gcc_except_table(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
+            context_builder_finder_heater.preanalyze_gcc_except_table(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
         elif seg.is_data():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            context_builder_finder_heater.preanalyze_data(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.RomAddress(seg.rom_start), seg.vram_start)
+            context_builder_finder_heater.preanalyze_data(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
 
+    if isinstance(seg, CommonSegGroup):
+        for subseg in seg.subsegments:
+            initialize_spim_context_do_segment(subseg, rom_bytes, context_builder_finder_heater)
 
 def add_symbol_to_context_builder(builder, sym: "Symbol"):
     attributes = spimdisasm.SymAttributes()
@@ -530,7 +531,15 @@ def add_symbol_to_context_builder(builder, sym: "Symbol"):
         attributes.set_typ(spimdisasm.SymbolType.Float64)
     elif sym.type in ("char", "asciz", "String", "Char", "char*"):
         attributes.set_typ(spimdisasm.SymbolType.CString)
-    elif sym.type is not None and sym.type not in ("func", "jtbl", "jtbl_label", "label"):
+    elif sym.type == "func":
+        attributes.set_typ(spimdisasm.SymbolType.Function)
+    elif sym.type == "jtbl":
+        attributes.set_typ(spimdisasm.SymbolType.Jumptable)
+    elif sym.type == "jtbl_label":
+        attributes.set_typ(spimdisasm.SymbolType.JumptableLabel)
+    elif sym.type == "label":
+        attributes.set_typ(spimdisasm.SymbolType.BranchLabel)
+    elif sym.type is not None:
         attributes.set_typ(spimdisasm.SymbolType.UserCustom)
 
     if sym.defined:
@@ -563,27 +572,10 @@ def add_symbol_to_context_builder(builder, sym: "Symbol"):
 
 
     vram = sym.vram_start
-    rom = spimdisasm.RomAddress(sym.rom) if sym.rom is not None else None
-    if sym.type == "func":
-        builder.add_function(
-            sym.name, vram, rom, attributes
-        )
-    elif sym.type == "jtbl":
-        builder.add_jumptable(
-            sym.name, vram, rom, attributes
-        )
-    elif sym.type == "jtbl_label":
-        builder.add_jumptable_label(
-            sym.name, vram, rom, attributes
-        )
-    elif sym.type == "label":
-        builder.add_branch_label(
-            sym.name, vram, rom, attributes
-        )
-    else:
-        builder.add_symbol(
-            sym.name, vram, rom, attributes
-        )
+    rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
+    builder.add_symbol(
+        sym.name, vram, rom, attributes
+    )
 
 """
 def add_symbol_to_spim_segment(

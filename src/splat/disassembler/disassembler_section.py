@@ -108,7 +108,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
         settings = spimdisasm.SectionNoloadSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
-            spimdisasm.RomAddress(segment_rom_start),
+            spimdisasm.Rom(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
             spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
         )
@@ -139,7 +139,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         settings.set_encoding(encoding)
 
         parent_segment_info = spimdisasm.ParentSegmentInfo(
-            spimdisasm.RomAddress(segment_rom_start),
+            spimdisasm.Rom(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
             spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
         )
@@ -147,7 +147,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
             settings,
             name,
             rom_bytes,
-            spimdisasm.RomAddress(rom_start),
+            spimdisasm.Rom(rom_start),
             vram_start,
             parent_segment_info,
         )
@@ -174,7 +174,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         settings.set_encoding(encoding)
 
         parent_segment_info = spimdisasm.ParentSegmentInfo(
-            spimdisasm.RomAddress(segment_rom_start),
+            spimdisasm.Rom(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
             spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
         )
@@ -182,7 +182,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
             settings,
             name,
             rom_bytes,
-            spimdisasm.RomAddress(rom_start),
+            spimdisasm.Rom(rom_start),
             vram_start,
             parent_segment_info,
         )
@@ -201,7 +201,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
         settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
-            spimdisasm.RomAddress(segment_rom_start),
+            spimdisasm.Rom(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
             spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
         )
@@ -209,7 +209,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
             settings,
             name,
             rom_bytes,
-            spimdisasm.RomAddress(rom_start),
+            spimdisasm.Rom(rom_start),
             vram_start,
             parent_segment_info,
         )
@@ -228,7 +228,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
         settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
-            spimdisasm.RomAddress(segment_rom_start),
+            spimdisasm.Rom(segment_rom_start),
             vram_start, # TODO: use segment's vram instead
             spimdisasm.OverlayCategoryName(exclusive_ram_id) if exclusive_ram_id is not None else None
         )
@@ -236,7 +236,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
             settings,
             name,
             rom_bytes,
-            spimdisasm.RomAddress(rom_start),
+            spimdisasm.Rom(rom_start),
             vram_start,
             parent_segment_info,
         )
