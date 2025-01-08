@@ -295,6 +295,21 @@ def do_scan(
     return processed_segments
 
 
+def do_post_process(
+    all_segments: List[Segment],
+    rom_bytes: bytes,
+    stats: statistics.Statistics,
+    cache: cache_handler.Cache,
+):
+    split_bar = progress_bar.get_progress_bar(all_segments)
+    for segment in split_bar:
+        assert isinstance(segment, Segment)
+        split_bar.set_description(f"Post processing {brief_seg_name(segment, 20)}")
+
+        if segment.should_scan():
+            segment.post_process()
+
+
 def do_split(
     all_segments: List[Segment],
     rom_bytes: bytes,
@@ -534,6 +549,8 @@ def main(
 
     # Scan
     do_scan(all_segments, rom_bytes, stats, cache)
+
+    do_post_process(all_segments, rom_bytes, stats, cache)
 
     # Split
     do_split(all_segments, rom_bytes, stats, cache)

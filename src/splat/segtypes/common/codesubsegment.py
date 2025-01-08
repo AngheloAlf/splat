@@ -189,6 +189,10 @@ class CommonSegCodeSubsegment(Segment):
                 )
             print(f"      - [0x{self.rom_start+in_file_offset:X}, {self.type}]")
 
+    def post_process(self):
+        if self.spim_section is not None:
+            self.spim_section.get_section().post_process(symbols.spim_context)
+
     def should_scan(self) -> bool:
         return (
             options.opts.is_mode_active("code")

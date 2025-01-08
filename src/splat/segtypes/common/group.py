@@ -133,6 +133,12 @@ class CommonSegGroup(CommonSegment):
                 # print(sub)
                 sub.scan(rom_bytes)
 
+    def post_process(self):
+        for sub in self.subsegments:
+            if sub.should_scan():
+                # print(sub)
+                sub.post_process()
+
     def split(self, rom_bytes):
         for sub in self.subsegments:
             if sub.should_split():

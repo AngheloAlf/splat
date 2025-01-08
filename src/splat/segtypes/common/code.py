@@ -285,3 +285,16 @@ class CommonSegCode(CommonSegGroup):
             if not sub.is_text() and sub.should_scan():
                 # print(sub)
                 sub.scan(rom_bytes)
+
+    def post_process(self):
+        # Always scan code first
+        for sub in self.subsegments:
+            if sub.is_text() and sub.should_scan():
+                # print(sub)
+                sub.post_process()
+
+        # Scan everyone else
+        for sub in self.subsegments:
+            if not sub.is_text() and sub.should_scan():
+                # print(sub)
+                sub.post_process()

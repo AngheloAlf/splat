@@ -590,6 +590,9 @@ class Segment:
     def scan(self, rom_bytes: bytes):
         pass
 
+    def post_process(self):
+        pass
+
     def split(self, rom_bytes: bytes):
         pass
 
