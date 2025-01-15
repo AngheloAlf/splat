@@ -406,7 +406,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
     global_config = spimdisasm.GlobalConfig(spimdisasm.Endian.Big)
     global_ranges = spimdisasm.RomVramRange(global_vrom_start, global_vrom_end, global_vram_start, global_vram_end)
-    context_builder = spimdisasm.ContextBuilder(global_config, global_ranges)
+    global_segment = spimdisasm.GlobalSegmentBuilder(global_ranges)
 
     """
     overlaps_found = False
@@ -455,7 +455,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
         for symbols_list in segment.seg_symbols.values():
             for sym in symbols_list:
-                add_symbol_to_context_builder(context_builder, sym)
+                add_symbol_to_context_builder(global_segment, sym)
 
     if global_vram_start and global_vram_end:
         # Pass global symbols to spimdisasm that are not part of any segment on the binary we are splitting (for psx and psp)
@@ -468,22 +468,20 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
                 # Not global
                 continue
 
-            add_symbol_to_context_builder(context_builder, sym)
+            add_symbol_to_context_builder(global_segment, sym)
 
-    context_builder_overlay = context_builder.process()
-    # TODO: do not ignore overlays
-
-    context_builder_finder_heater = context_builder_overlay.process()
+    global_segment_heater = global_segment.finish_symbols()
     for seg in all_segments:
-        initialize_spim_context_do_segment(seg, rom_bytes, context_builder_finder_heater)
+        if seg.exclusive_ram_id is None:
+            initialize_spim_context_do_segment(seg, rom_bytes, global_segment_heater, global_config)
 
-    context_builder_finder_heater_overlays = context_builder_finder_heater.process()
+    context_builder = spimdisasm.ContextBuilder(global_segment_heater)
     # TODO: do not ignore overlays
 
     global spim_context
-    spim_context = context_builder_finder_heater_overlays.build()
+    spim_context = context_builder.build(global_config)
 
-def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, context_builder_finder_heater):
+def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment_heater, global_config):
     from ..segtypes.common.group import CommonSegGroup
     from ..segtypes.common.codesubsegment import CommonSegCodeSubsegment
 
@@ -492,27 +490,27 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, context
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler)
-            context_builder_finder_heater.preanalyze_text(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            segment_heater.preanalyze_text(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
         elif seg.is_rodata():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
             assert seg.rom_start is not None, seg
-            context_builder_finder_heater.preanalyze_rodata(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            segment_heater.preanalyze_rodata(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
         elif seg.get_linker_section() == ".gcc_except_table":
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            context_builder_finder_heater.preanalyze_gcc_except_table(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            segment_heater.preanalyze_gcc_except_table(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
         elif seg.is_data():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            context_builder_finder_heater.preanalyze_data(settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            segment_heater.preanalyze_data(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
 
     if isinstance(seg, CommonSegGroup):
         for subseg in seg.subsegments:
-            initialize_spim_context_do_segment(subseg, rom_bytes, context_builder_finder_heater)
+            initialize_spim_context_do_segment(subseg, rom_bytes, segment_heater, global_config)
 
 def add_symbol_to_context_builder(builder, sym: "Symbol"):
     attributes = spimdisasm.SymAttributes()
