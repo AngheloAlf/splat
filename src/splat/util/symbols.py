@@ -446,7 +446,6 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     # pass the global symbols to spimdisasm
     for segment in all_segments:
         if not isinstance(segment, CommonSegCode):
-            # We only care about the VRAMs of code segments
             continue
 
         ram_id = segment.get_exclusive_ram_id()
@@ -477,6 +476,28 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
     context_builder = spimdisasm.ContextBuilder(global_segment_heater)
     # TODO: do not ignore overlays
+
+    # Overlays
+    for segment in all_segments:
+        if not isinstance(segment, CommonSegCode):
+            continue
+
+        ram_id = segment.get_exclusive_ram_id()
+        if ram_id is None:
+            continue
+
+        overlay_ranges = spimdisasm.RomVramRange(segment.rom_start, segment.rom_end, segment.vram_start, segment.vram_end)
+        overlay_category_name = spimdisasm.OverlayCategoryName(ram_id)
+        overlay_builder = spimdisasm.OverlaySegmentBuilder(overlay_ranges, overlay_category_name)
+
+        for symbols_list in segment.seg_symbols.values():
+            for sym in symbols_list:
+                add_symbol_to_context_builder(overlay_builder, sym)
+
+        overlay_heater = overlay_builder.finish_symbols()
+        initialize_spim_context_do_segment(segment, rom_bytes, overlay_heater, global_config)
+
+        context_builder.add_overlay(overlay_heater)
 
     global spim_context
     spim_context = context_builder.build(global_config)
@@ -713,7 +734,7 @@ def create_symbol_from_spim_symbol(
             in_segment = segment.contains_vram(vram)
         elif overlay_category == segment.get_exclusive_ram_id():
             if rom is not None:
-                in_segment = segment.contains_rom(rom)
+                in_segment = segment.contains_rom(rom.inner())
             else:
                 in_segment = segment.contains_vram(vram)
 
