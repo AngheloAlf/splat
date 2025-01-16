@@ -63,6 +63,8 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
             f.write(f"{self.get_section_asm_line()}\n\n")
 
             settings = spimdisasm.SymDataDisplaySettings()
+            settings.set_rom_comment_width(6 if options.opts.rom_address_padding else 0 )
+
             sym_count = self.spim_section.get_section().sym_count()
             for i in range(sym_count):
                 f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
@@ -148,11 +150,13 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
 
         rodata_encountered = False
         # return
+        return
 
         for sym_index in range(self.spim_section.get_section().sym_count()):
-            symbols.create_symbol_from_spim_symbol(
+            generated_symbol = symbols.create_symbol_from_spim_symbol(
                 self.get_most_parent(), *self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
             )
+            self.spim_section.get_section().set_sym_name(symbols.spim_context, sym_index, generated_symbol.name)
 
             """
             # Hint to the user that we are now in the .rodata section and no longer in the .data section (assuming rodata follows data)

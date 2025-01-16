@@ -740,7 +740,6 @@ def create_symbol_from_spim_symbol(
     segment: "Segment",
     vram: int,
     rom,
-    name: str,
     typ,
     siz,
     is_defined: bool,
@@ -777,9 +776,6 @@ def create_symbol_from_spim_symbol(
     sym = segment.create_symbol(
         vram, in_segment, type=sym_type, reference=True
     )
-
-    if sym.given_name is None and name is not None:
-        sym.given_name = name
 
     if siz is not None:
         sym.given_size = siz.inner()

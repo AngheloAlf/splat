@@ -191,6 +191,7 @@ class CommonSegC(CommonSegCodeSubsegment):
                     display_flags.set_opcode_ljust(options.opts.mnemonic_ljust - 1)
 
                     settings = spimdisasm.FunctionDisplaySettings(display_flags)
+                    settings.set_rom_comment_width(6 if options.opts.rom_address_padding else 0 )
                     sym_count = self.spim_section.get_section().sym_count()
                     for i in range(sym_count):
                         f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
@@ -381,12 +382,17 @@ class CommonSegC(CommonSegCodeSubsegment):
             display_flags.set_opcode_ljust(options.opts.mnemonic_ljust - 1)
 
             settings = spimdisasm.FunctionDisplaySettings(display_flags)
+            settings.set_rom_comment_width(6 if options.opts.rom_address_padding else 0 )
+
+            roadta_settings = spimdisasm.SymDataDisplaySettings()
+            roadta_settings.set_rom_comment_width(6 if options.opts.rom_address_padding else 0 )
+
             disassembled = func_rodata_entry.display(
                 symbols.spim_context, 
                 self.spim_section.get_section(),
                 settings,
                 rodata_spim_segment,
-                spimdisasm.SymDataDisplaySettings(),
+                roadta_settings,
                 self.get_linker_section_linksection(),
                 rodata_section_type,
                 None,
@@ -430,13 +436,17 @@ class CommonSegC(CommonSegCodeSubsegment):
             display_flags.set_opcode_ljust(options.opts.mnemonic_ljust - 1)
 
             settings = spimdisasm.FunctionDisplaySettings(display_flags)
+            settings.set_rom_comment_width(6 if options.opts.rom_address_padding else 0 )
+
+            roadta_settings = spimdisasm.SymDataDisplaySettings()
+            roadta_settings.set_rom_comment_width(6 if options.opts.rom_address_padding else 0 )
 
             disassembled = func_rodata_entry.display(
                 symbols.spim_context, 
                 self.spim_section.get_section(),
                 settings,
                 rodata_spim_segment,
-                spimdisasm.SymDataDisplaySettings(),
+                roadta_settings,
                 self.get_linker_section_linksection(),
                 rodata_section_type,
                 None,

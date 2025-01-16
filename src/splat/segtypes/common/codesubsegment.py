@@ -105,13 +105,6 @@ class CommonSegCodeSubsegment(Segment):
 
         # self.spim_section.set_comment_offset(self.rom_start)
 
-        for sym_index in range(self.spim_section.get_section().sym_count()):
-            symbols.create_symbol_from_spim_symbol(
-                self.get_most_parent(), *self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
-            )
-        # for func in self.spim_section.get_section().symbolList:
-        #     self.process_insns(func)
-
     def process_insns(
         self,
         func_spim,
@@ -191,7 +184,22 @@ class CommonSegCodeSubsegment(Segment):
 
     def post_process(self):
         if self.spim_section is not None:
-            self.spim_section.get_section().post_process(symbols.spim_context)
+            section = self.spim_section.get_section()
+            section.post_process(symbols.spim_context)
+
+            for sym_index in range(section.sym_count()):
+                generated_symbol = symbols.create_symbol_from_spim_symbol(
+                    self.get_most_parent(), *section.get_sym_info(symbols.spim_context, sym_index)
+                )
+                section.set_sym_name(symbols.spim_context, sym_index, generated_symbol.name)
+                generated_symbol.linker_section = self.get_linker_section_linksection()
+
+                for label_index in range(section.label_count_for_sym(sym_index)):
+                    generated_label = symbols.create_symbol_from_spim_symbol(
+                        self.get_most_parent(), *section.get_label_info(symbols.spim_context, sym_index, label_index)
+                    )
+                    section.set_label_name(symbols.spim_context, sym_index, label_index, generated_label.name)
+
 
     def should_scan(self) -> bool:
         return (

@@ -107,10 +107,12 @@ class CommonSegRodata(CommonSegData):
         last_jumptable_addr_remainder = 0
         misaligned_jumptable_offsets: List[int] = []
 
+        return
         for sym_index in range(self.spim_section.get_section().sym_count()):
             generated_symbol = symbols.create_symbol_from_spim_symbol(
                 self.get_most_parent(), *self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
             )
+            self.spim_section.get_section().set_sym_name(symbols.spim_context, sym_index, generated_symbol.name)
             generated_symbol.linker_section = self.get_linker_section_linksection()
 
             continue
