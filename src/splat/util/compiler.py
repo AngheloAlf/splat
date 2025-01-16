@@ -9,7 +9,7 @@ class Compiler:
     asm_function_alt_macro: str = "glabel"
     asm_jtbl_label_macro: str = "glabel"
     asm_data_macro: str = "glabel"
-    asm_end_label: str = ""
+    asm_end_label: Optional[str] = None
     asm_ehtable_label_macro: str = "ehlabel"
     c_newline: str = "\n"
     asm_inc_header: str = ""

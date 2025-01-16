@@ -22,6 +22,7 @@ to_mark_as_defined: Set[str] = set()
 
 # Initialize a spimdisasm context, used to store symbols and functions
 spim_context = None
+instruction_flags = None
 
 TRUEY_VALS = ["true", "on", "yes", "y"]
 FALSEY_VALS = ["false", "off", "no", "n"]
@@ -405,7 +406,25 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     assert global_vram_start is not None and global_vram_end is not None and global_vrom_start is not None and global_vrom_end is not None
 
     global_config = spimdisasm.GlobalConfig(spimdisasm.Endian.Big)
-    global_ranges = spimdisasm.RomVramRange(global_vrom_start, global_vrom_end, global_vram_start, global_vram_end)
+    if options.opts.asm_emit_size_directive is not None:
+        global_config.set_emit_size_directive(options.opts.asm_emit_size_directive)
+
+    macro_labels = spimdisasm.MacroLabels()
+    macro_labels.set_func(options.opts.asm_function_macro)
+    macro_labels.set_alt_func(options.opts.asm_function_alt_macro)
+    macro_labels.set_func_end(options.opts.asm_end_label)
+    macro_labels.set_jtbl_label(options.opts.asm_jtbl_label_macro)
+    macro_labels.set_ehtbl_label(options.opts.asm_ehtable_label_macro)
+    macro_labels.set_data(options.opts.asm_data_macro)
+    # macro_labels.set_data_end(options.opts.asm_data_end_macro)
+    global_config.set_macro_labels(macro_labels)
+
+    global_ranges = spimdisasm.RomVramRange(
+        spimdisasm.Rom(global_vrom_start),
+        spimdisasm.Rom(global_vrom_end),
+        spimdisasm.Vram(global_vram_start),
+        spimdisasm.Vram(global_vram_end),
+    )
     global_segment = spimdisasm.GlobalSegmentBuilder(global_ranges)
 
     """
@@ -469,6 +488,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
             add_symbol_to_context_builder(global_segment, sym)
 
+    global instruction_flags
+    instruction_flags = generate_spimdisasm_instruction_flags()
+
     global_segment_heater = global_segment.finish_symbols()
     for seg in all_segments:
         if seg.exclusive_ram_id is None:
@@ -486,9 +508,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         if ram_id is None:
             continue
 
-        overlay_ranges = spimdisasm.RomVramRange(segment.rom_start, segment.rom_end, segment.vram_start, segment.vram_end)
+        overlay_ranges = spimdisasm.RomVramRange(spimdisasm.Rom(segment.rom_start), spimdisasm.Rom(segment.rom_end), spimdisasm.Vram(segment.vram_start), spimdisasm.Vram(segment.vram_end))
         overlay_category_name = spimdisasm.OverlayCategoryName(ram_id)
-        overlay_builder = spimdisasm.OverlaySegmentBuilder(overlay_ranges, overlay_category_name)
+        overlay_builder = spimdisasm.OverlaySegmentBuilder(overlay_ranges, overlay_category_name, segment.name)
 
         for symbols_list in segment.seg_symbols.values():
             for sym in symbols_list:
@@ -502,6 +524,20 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     global spim_context
     spim_context = context_builder.build(global_config)
 
+def generate_spimdisasm_instruction_flags():
+    if options.opts.platform == "n64":
+        instruction_flags = spimdisasm.InstructionFlags(spimdisasm.IsaVersion.MIPS_III)
+    elif options.opts.platform == "psx":
+        instruction_flags = spimdisasm.InstructionFlags.new_extension(spimdisasm.IsaExtension.R3000GTE)
+    elif options.opts.platform == "psp":
+        instruction_flags = spimdisasm.InstructionFlags.new_extension(spimdisasm.IsaExtension.R4000ALLEGREX)
+    elif options.opts.platform == "ps2":
+        instruction_flags = spimdisasm.InstructionFlags.new_extension(spimdisasm.IsaExtension.R5900)
+    else:
+        assert False, options.opts.platform
+    instruction_flags.set_j_as_branch(options.opts.compiler.j_as_branch)
+    return instruction_flags
+
 def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment_heater, global_config):
     from ..segtypes.common.group import CommonSegGroup
     from ..segtypes.common.codesubsegment import CommonSegCodeSubsegment
@@ -510,24 +546,24 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
         if seg.is_text():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-            settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler)
-            segment_heater.preanalyze_text(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler, instruction_flags)
+            segment_heater.preanalyze_text(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.is_rodata():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
             assert seg.rom_start is not None, seg
-            segment_heater.preanalyze_rodata(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            segment_heater.preanalyze_rodata(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.get_linker_section() == ".gcc_except_table":
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            segment_heater.preanalyze_gcc_except_table(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            segment_heater.preanalyze_gcc_except_table(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.is_data():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            segment_heater.preanalyze_data(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), seg.vram_start)
+            segment_heater.preanalyze_data(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
 
     if isinstance(seg, CommonSegGroup):
         for subseg in seg.subsegments:
@@ -590,7 +626,7 @@ def add_symbol_to_context_builder(builder, sym: "Symbol"):
 
 
 
-    vram = sym.vram_start
+    vram = spimdisasm.Vram(sym.vram_start)
     rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
     builder.add_symbol(
         sym.name, vram, rom, attributes

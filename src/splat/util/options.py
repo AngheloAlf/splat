@@ -182,7 +182,7 @@ class SplatOpts:
     # Determines the macro used to declare data symbols in asm files
     asm_data_macro: str
     # Determines the macro used at the end of a function, such as endlabel or .end
-    asm_end_label: str
+    asm_end_label: Optional[str]
     # Determines the macro used to declare ehtable labels in asm files
     asm_ehtable_label_macro: str
     # Toggles the .size directive emitted by the disassembler
@@ -507,7 +507,7 @@ def _parse_yaml(
             "asm_jtbl_label_macro", str, comp.asm_jtbl_label_macro
         ),
         asm_data_macro=p.parse_opt("asm_data_macro", str, comp.asm_data_macro),
-        asm_end_label=p.parse_opt("asm_end_label", str, comp.asm_end_label),
+        asm_end_label=p.parse_optional_opt_with_default("asm_end_label", str, comp.asm_end_label),
         asm_ehtable_label_macro=p.parse_opt(
             "asm_ehtable_label_macro", str, comp.asm_ehtable_label_macro
         ),

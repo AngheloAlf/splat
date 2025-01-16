@@ -184,7 +184,13 @@ class CommonSegC(CommonSegCodeSubsegment):
                 with asm_out_path.open("w", newline="\n") as f:
                     for line in self.get_file_header():
                         f.write(line + "\n")
-                    settings = spimdisasm.FunctionDisplaySettings()
+
+                    display_flags = spimdisasm.InstructionDisplayFlags.new_gnu_as()
+                    display_flags.set_named_gpr(options.opts.mips_abi_gpr != "numeric")
+                    display_flags.set_named_fpr(options.opts.mips_abi_float_regs != "numeric")
+                    display_flags.set_opcode_ljust(options.opts.mnemonic_ljust - 1)
+
+                    settings = spimdisasm.FunctionDisplaySettings(display_flags)
                     sym_count = self.spim_section.get_section().sym_count()
                     for i in range(sym_count):
                         f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
@@ -369,15 +375,16 @@ class CommonSegC(CommonSegCodeSubsegment):
                     options.opts.c_newline.join(options.opts.asm_inc_header.split("\n"))
                 )
 
-            # named_registers_opt = rabbitizer.config.regNames_namedRegisters
+            display_flags = spimdisasm.InstructionDisplayFlags.new_gnu_as()
+            display_flags.set_named_gpr(options.opts.mips_abi_gpr != "numeric" and options.opts.named_regs_for_c_funcs)
+            display_flags.set_named_fpr(options.opts.mips_abi_float_regs != "numeric" and options.opts.named_regs_for_c_funcs)
+            display_flags.set_opcode_ljust(options.opts.mnemonic_ljust - 1)
 
-            # rabbitizer.config.regNames_namedRegisters = (
-            #     options.opts.named_regs_for_c_funcs
-            # )
+            settings = spimdisasm.FunctionDisplaySettings(display_flags)
             disassembled = func_rodata_entry.display(
                 symbols.spim_context, 
                 self.spim_section.get_section(),
-                spimdisasm.FunctionDisplaySettings(),
+                settings,
                 rodata_spim_segment,
                 spimdisasm.SymDataDisplaySettings(),
                 self.get_linker_section_linksection(),
@@ -385,7 +392,6 @@ class CommonSegC(CommonSegCodeSubsegment):
                 None,
             )
             f.write(disassembled)
-            # rabbitizer.config.regNames_namedRegisters = named_registers_opt
 
             # if func_rodata_entry.function is not None:
             #     self.check_gaps_in_migrated_rodata(
@@ -418,10 +424,17 @@ class CommonSegC(CommonSegCodeSubsegment):
             if preamble:
                 f.write(preamble + "\n")
             # assert rodata_sym.linker_section is not None, rodata_sym.name
+            display_flags = spimdisasm.InstructionDisplayFlags.new_gnu_as()
+            display_flags.set_named_gpr(options.opts.mips_abi_gpr != "numeric" and options.opts.named_regs_for_c_funcs)
+            display_flags.set_named_fpr(options.opts.mips_abi_float_regs != "numeric" and options.opts.named_regs_for_c_funcs)
+            display_flags.set_opcode_ljust(options.opts.mnemonic_ljust - 1)
+
+            settings = spimdisasm.FunctionDisplaySettings(display_flags)
+
             disassembled = func_rodata_entry.display(
                 symbols.spim_context, 
                 self.spim_section.get_section(),
-                spimdisasm.FunctionDisplaySettings(),
+                settings,
                 rodata_spim_segment,
                 spimdisasm.SymDataDisplaySettings(),
                 self.get_linker_section_linksection(),

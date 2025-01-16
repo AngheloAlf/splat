@@ -58,7 +58,12 @@ class CommonSegAsm(CommonSegCodeSubsegment):
                     for line in self.get_file_header():
                         f.write(line + "\n")
 
-                    settings = spimdisasm.FunctionDisplaySettings()
+                    display_flags = spimdisasm.InstructionDisplayFlags.new_gnu_as()
+                    display_flags.set_named_gpr(options.opts.mips_abi_gpr != "numeric")
+                    display_flags.set_named_fpr(options.opts.mips_abi_float_regs != "numeric")
+                    display_flags.set_opcode_ljust(options.opts.mnemonic_ljust - 1)
+
+                    settings = spimdisasm.FunctionDisplaySettings(display_flags)
                     sym_count = self.spim_section.get_section().sym_count()
                     for i in range(sym_count):
                         f.write(self.spim_section.get_section().display_sym(symbols.spim_context, i, settings))
