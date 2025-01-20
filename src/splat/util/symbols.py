@@ -524,6 +524,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     global spim_context
     spim_context = context_builder.build(global_config)
 
+    # for sym in all_symbols:
+    #     assert sym._passed_to_spimdisasm, sym
+
 def generate_spimdisasm_instruction_flags():
     if options.opts.platform == "n64":
         instruction_flags = spimdisasm.InstructionFlags(spimdisasm.IsaVersion.MIPS_III)
@@ -553,6 +556,11 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+            encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding)
+            # print(encoding)
+            settings.set_encoding(encoding)
+            if options.opts.rodata_string_guesser_level is not None:
+                settings.set_string_guesser_level(options.convert_string_guesser_level(options.opts.rodata_string_guesser_level))
             assert seg.rom_start is not None, seg
             segment_heater.preanalyze_rodata(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.get_linker_section() == ".gcc_except_table":
@@ -564,6 +572,11 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+            encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding)
+            # print(encoding)
+            settings.set_encoding(encoding)
+            if options.opts.data_string_guesser_level is not None:
+                settings.set_string_guesser_level(options.convert_string_guesser_level(options.opts.data_string_guesser_level))
             segment_heater.preanalyze_data(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
 
     if isinstance(seg, CommonSegGroup):
@@ -632,6 +645,7 @@ def add_symbol_to_context_builder(builder, sym: "Symbol"):
     builder.add_symbol(
         sym.name, vram, rom, attributes
     )
+    sym._passed_to_spimdisasm = True
 
 """
 def add_symbol_to_spim_segment(
@@ -835,6 +849,8 @@ class Symbol:
 
     _generated_default_name: Optional[str] = None
     _last_type: Optional[str] = None
+
+    _passed_to_spimdisasm = False
 
     def __str__(self):
         return self.name

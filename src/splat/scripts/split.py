@@ -547,6 +547,16 @@ def main(
     if options.opts.is_mode_active("img"):
         palettes.initialize(all_segments)
 
+    # print()
+    # print()
+    # print()
+    # from ..segtypes.common.code import CommonSegCode
+    # for segment in all_segments:
+    #     if isinstance(segment, CommonSegCode):
+    #         print(f"{segment.name},{segment.vram_start},{segment.vram_end},{segment.exclusive_ram_id}")
+    # print()
+    # print()
+
     # Scan
     do_scan(all_segments, rom_bytes, stats, cache)
 

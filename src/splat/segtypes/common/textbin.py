@@ -88,7 +88,7 @@ class CommonSegTextbin(CommonSegment):
         f.write(f'.incbin "{binpath}"\n')
 
         if sym is not None:
-            if self.is_text() and options.opts.asm_end_label != "":
+            if self.is_text() and options.opts.asm_end_label:
                 f.write(f"{options.opts.asm_end_label} {sym.name}\n")
 
             if sym.given_name_end is not None:

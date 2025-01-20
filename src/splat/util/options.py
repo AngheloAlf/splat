@@ -585,3 +585,17 @@ def initialize(
         modes = ["all"]
 
     opts = _parse_yaml(config["options"], config_paths, modes, verbose, disasm_all)
+
+def convert_string_guesser_level(level: int):
+    import spimdisasm
+    if level <= 0:
+        return spimdisasm.StringGuesserLevel.No
+    if level == 1:
+        return spimdisasm.StringGuesserLevel.Conservative
+    if level == 2:
+        return spimdisasm.StringGuesserLevel.MultipleReferences
+    if level == 3:
+        return spimdisasm.StringGuesserLevel.EmptyStrings
+    if level == 4:
+        return spimdisasm.StringGuesserLevel.IgnoreDetectedType
+    return spimdisasm.StringGuesserLevel.Full
