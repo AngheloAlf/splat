@@ -262,6 +262,7 @@ class Segment:
         self.align: Optional[int] = None
         self.given_subalign: Optional[int] = options.opts.subalign
         self.exclusive_ram_id: Optional[str] = None
+        self.can_see_segments: List[str] = []
         self.given_dir: Path = Path()
 
         # Default to global options.
@@ -387,6 +388,8 @@ class Segment:
         if isinstance(yaml, dict):
             ret.extract = bool(yaml.get("extract", ret.extract))
             ret.exclusive_ram_id = yaml.get("exclusive_ram_id")
+            ret.can_see_segments = yaml.get("can_see_segments", [])
+            assert isinstance(ret.can_see_segments, list), f"{ret.name}, {ret.can_see_segments}"
             ret.given_dir = Path(yaml.get("dir", ""))
             ret.has_linker_entry = bool(yaml.get("linker_entry", True))
             ret.given_find_file_boundaries = yaml.get("find_file_boundaries", None)

@@ -471,6 +471,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         if ram_id is not None:
             continue
 
+        for other_segment_name in segment.can_see_segments:
+            global_segment.add_prioritised_overlay(other_segment_name)
+
         for symbols_list in segment.seg_symbols.values():
             for sym in symbols_list:
                 add_symbol_to_context_builder(global_segment, sym)
@@ -511,6 +514,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         overlay_ranges = spimdisasm.RomVramRange(spimdisasm.Rom(segment.rom_start), spimdisasm.Rom(segment.rom_end), spimdisasm.Vram(segment.vram_start), spimdisasm.Vram(segment.vram_end))
         overlay_category_name = spimdisasm.OverlayCategoryName(ram_id)
         overlay_builder = spimdisasm.OverlaySegmentBuilder(overlay_ranges, overlay_category_name, segment.name)
+
+        for other_segment_name in segment.can_see_segments:
+            overlay_builder.add_prioritised_overlay(other_segment_name)
 
         for symbols_list in segment.seg_symbols.values():
             for sym in symbols_list:
