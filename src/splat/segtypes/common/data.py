@@ -76,10 +76,10 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
         return options.opts.is_mode_active("data")
 
     def should_scan(self) -> bool:
-        return True
+        return self.vram_start != self.vram_end
 
     def should_split(self) -> bool:
-        return True
+        return self.vram_start != self.vram_end
 
     def cache(self):
         return [CommonSegCodeSubsegment.cache(self), CommonSegGroup.cache(self)]

@@ -136,7 +136,7 @@ class CommonSegTextbin(CommonSegment):
                     sibling.write_asm_contents(rom_bytes, f)
 
     def should_scan(self) -> bool:
-        return self.rom_start is not None and self.rom_end is not None
+        return self.rom_start is not None and self.rom_end is not None and self.vram_start != self.vram_end
 
     def should_split(self) -> bool:
         return (

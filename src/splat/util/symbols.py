@@ -251,9 +251,11 @@ def handle_sym_addrs(
                 if sym.given_size is None or sym.given_size == 0:
                     ignored_addresses.add(sym.vram_start)
                 else:
-                    spim_context.addBannedSymbolRangeBySize(
-                        sym.vram_start, sym.given_size
-                    )
+                    # TODO: implement this
+                    # spim_context.addBannedSymbolRangeBySize(
+                    #     sym.vram_start, sym.given_size
+                    # )
+                    pass
 
                 continue
 
@@ -335,11 +337,12 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     # spim_context.bannedSymbols |= ignored_addresses
 
     from ..segtypes.common.code import CommonSegCode
+    from ..segtypes.common.codesubsegment import CommonSegCodeSubsegment
 
     global_segments_after_overlays: List[CommonSegCode] = []
 
     for segment in all_segments:
-        if not isinstance(segment, CommonSegCode):
+        if not isinstance(segment, (CommonSegCode, CommonSegCodeSubsegment)):
             # We only care about the VRAMs of code segments
             continue
 
@@ -464,7 +467,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
     # pass the global symbols to spimdisasm
     for segment in all_segments:
-        if not isinstance(segment, CommonSegCode):
+        if not isinstance(segment, (CommonSegCode, CommonSegCodeSubsegment)):
             continue
 
         ram_id = segment.get_exclusive_ram_id()
@@ -504,7 +507,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
     # Overlays
     for segment in all_segments:
-        if not isinstance(segment, CommonSegCode):
+        if not isinstance(segment, (CommonSegCode, CommonSegCodeSubsegment)):
             continue
 
         ram_id = segment.get_exclusive_ram_id()
@@ -562,7 +565,7 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding)
+            encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding if options.opts.string_encoding is not None else "ASCII")
             # print(encoding)
             settings.set_encoding(encoding)
             if options.opts.rodata_string_guesser_level is not None:
@@ -578,7 +581,7 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
-            encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding)
+            encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding if options.opts.data_string_encoding is not None else "ASCII")
             # print(encoding)
             settings.set_encoding(encoding)
             if options.opts.data_string_guesser_level is not None:

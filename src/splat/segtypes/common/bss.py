@@ -95,7 +95,23 @@ class CommonSegBss(CommonSegData):
     def should_scan(self) -> bool:
         if not options.opts.ld_bss_is_noload:
             return super().should_scan()
-        return options.opts.is_mode_active("code") and self.vram_start is not None
+        return options.opts.is_mode_active("code") and self.vram_start is not None and self.vram_start != self.vram_end
+
+    @property
+    def size(self) -> Optional[int]:
+        if self.vram_start is None:
+            return None
+
+        next_subsegment = self.parent.get_next_subsegment_for_ram(self.vram_start)
+        if next_subsegment is None:
+            bss_end = self.get_most_parent().vram_end
+        else:
+            bss_end = next_subsegment.vram_start
+
+        if bss_end is None:
+            return None
+
+        return bss_end - self.vram_start
 
     def split(self, rom_bytes: bytes):
         if self.type.startswith(".") and not options.opts.disassemble_all:

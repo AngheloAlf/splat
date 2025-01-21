@@ -134,7 +134,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
         settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
 
-        encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding)
+        encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding if options.opts.data_string_encoding is not None else "ASCII")
         # print(encoding)
         settings.set_encoding(encoding)
         if options.opts.data_string_guesser_level is not None:
@@ -171,7 +171,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
         settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
 
-        encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding)
+        encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding if options.opts.string_encoding is not None else "ASCII")
         # print(encoding)
         settings.set_encoding(encoding)
         if options.opts.rodata_string_guesser_level is not None:

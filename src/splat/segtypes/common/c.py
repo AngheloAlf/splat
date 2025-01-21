@@ -225,6 +225,9 @@ class CommonSegC(CommonSegCodeSubsegment):
                         rodata_sibling, CommonSegRodata
                     ), f"{rodata_sibling}, {rodata_sibling.type}"
 
+                    if rodata_sibling.spim_section is None:
+                        continue
+
                     if not rodata_sibling.type.startswith("."):
                         # Emit an error if we try to migrate the rodata symbols to functions if the rodata section is not prefixed with a dot
                         # (ie `- [0x1234, rodata, some_file]` instead of `- [0x1234, .rodata, some_file]`).
@@ -245,7 +248,6 @@ class CommonSegC(CommonSegCodeSubsegment):
                         rodata_sibling.get_linker_section_linksection()
                     )
 
-                    assert rodata_sibling.spim_section is not None, f"{rodata_sibling}"
                     # assert isinstance(
                     #     rodata_sibling.spim_section.get_section(),
                     #     spimdisasm.mips.sections.SectionRodata,
