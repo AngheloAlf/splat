@@ -13,18 +13,18 @@ def init(target_bytes: bytes):
     if options.opts.hardware_regs:
         symbols.spim_context.globalSegment.fillHardwareRegs(True)
 
-def platform_segment():
+def user_segment():
     import spimdisasm
-    platform_segment = spimdisasm.PlatformSegmentBuilder()
+    user_segment = spimdisasm.UserSegmentBuilder()
 
     if options.opts.libultra_symbols:
-        platform_segment.n64_libultra_symbols()
+        user_segment.n64_libultra_symbols()
     if options.opts.hardware_regs:
-        platform_segment.n64_hardware_registers(True, True)
+        user_segment.n64_hardware_registers(True, True)
 
     if options.opts.ique_symbols:
-        platform_segment.ique_libultra_symbols()
+        user_segment.ique_libultra_symbols()
         if options.opts.hardware_regs:
-            platform_segment.ique_hardware_registers(True, True)
+            user_segment.ique_hardware_registers(True, True)
 
-    return platform_segment
+    return user_segment

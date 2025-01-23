@@ -247,6 +247,9 @@ def handle_sym_addrs(
                             if attr_name == "allow_duplicated":
                                 sym.allow_duplicated = True
                                 continue
+                            if attr_name == "user_segment":
+                                sym.user_segment = tf_val
+                                continue
 
             if ignore_sym:
                 if sym.given_size is None or sym.given_size == 0:
@@ -480,7 +483,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
         for symbols_list in segment.seg_symbols.values():
             for sym in symbols_list:
-                add_symbol_to_context_builder(global_segment, sym)
+                if sym.user_segment:
+                    continue
+                add_symbol_to_segment_builder(global_segment, sym)
 
     if global_vram_start and global_vram_end:
         # Pass global symbols to spimdisasm that are not part of any segment on the binary we are splitting (for psx and psp)
@@ -493,7 +498,10 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
                 # Not global
                 continue
 
-            add_symbol_to_context_builder(global_segment, sym)
+            if sym.user_segment:
+                continue
+
+            add_symbol_to_segment_builder(global_segment, sym)
 
     global instruction_flags
     instruction_flags = generate_spimdisasm_instruction_flags()
@@ -503,8 +511,13 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         if seg.exclusive_ram_id is None:
             initialize_spim_context_do_segment(seg, rom_bytes, global_segment_heater, global_config)
 
-    platform_segment = platforms.get_platform_function("platform_segment")()
-    context_builder = spimdisasm.ContextBuilder(global_segment_heater, platform_segment)
+    user_segment = platforms.get_platform_function("user_segment")()
+    for sym in all_symbols:
+        if not sym.user_segment:
+            continue
+        add_symbol_to_user_segment_builder(user_segment, sym)
+
+    context_builder = spimdisasm.ContextBuilder(global_segment_heater, user_segment)
 
     # Overlays
     for segment in all_segments:
@@ -524,7 +537,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
         for symbols_list in segment.seg_symbols.values():
             for sym in symbols_list:
-                add_symbol_to_context_builder(overlay_builder, sym)
+                if sym.user_segment:
+                    continue
+                add_symbol_to_segment_builder(overlay_builder, sym)
 
         overlay_heater = overlay_builder.finish_symbols()
         initialize_spim_context_do_segment(segment, rom_bytes, overlay_heater, global_config)
@@ -534,8 +549,11 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     global spim_context
     spim_context = context_builder.build(global_config)
 
-    # for sym in all_symbols:
-    #     assert sym._passed_to_spimdisasm, sym
+    for sym in all_symbols:
+        if sym.vram_start in ignored_addresses:
+            # TODO: implement
+            continue
+        assert sym._passed_to_spimdisasm, sym
 
 def generate_spimdisasm_instruction_flags():
     if options.opts.platform == "n64":
@@ -593,7 +611,7 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
         for subseg in seg.subsegments:
             initialize_spim_context_do_segment(subseg, rom_bytes, segment_heater, global_config)
 
-def add_symbol_to_context_builder(builder, sym: "Symbol"):
+def add_symbol_to_segment_builder(builder, sym: "Symbol"):
     attributes = spimdisasm.SymAttributes()
 
     if sym.type in ("u8", "s8"):
@@ -654,6 +672,45 @@ def add_symbol_to_context_builder(builder, sym: "Symbol"):
     rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
     builder.add_symbol(
         sym.name, vram, rom, attributes
+    )
+    sym._passed_to_spimdisasm = True
+
+def add_symbol_to_user_segment_builder(builder, sym: "Symbol"):
+    if sym.type in ("u8", "s8"):
+        typ = spimdisasm.SymbolType.Byte
+    elif sym.type in ("u16", "s16"):
+        typ = spimdisasm.SymbolType.Short
+    elif sym.type in ("u32", "s32"):
+        typ = spimdisasm.SymbolType.Word
+    elif sym.type in ("u64", "s64"):
+        typ = spimdisasm.SymbolType.DWord
+    elif sym.type == "f32":
+        typ = spimdisasm.SymbolType.Float32
+    elif sym.type == "f64":
+        typ = spimdisasm.SymbolType.Float64
+    elif sym.type in ("char", "asciz", "String", "Char", "char*"):
+        typ = spimdisasm.SymbolType.CString
+    elif sym.type == "func":
+        typ = spimdisasm.SymbolType.Function
+    elif sym.type == "jtbl":
+        typ = spimdisasm.SymbolType.Jumptable
+    elif sym.type == "jtbl_label":
+        typ = spimdisasm.SymbolType.JumptableLabel
+    elif sym.type == "label":
+        typ = spimdisasm.SymbolType.BranchLabel
+    elif sym.type is not None:
+        typ = spimdisasm.SymbolType.UserCustom
+    else:
+        typ = None
+
+    if sym.given_size is not None:
+        size = spimdisasm.Size(sym.given_size)
+    else:
+        size = spimdisasm.Size(1)
+
+    vram = spimdisasm.Vram(sym.vram_start)
+    builder.add_symbol(
+        vram, sym.name, size, typ
     )
     sym._passed_to_spimdisasm = True
 
@@ -861,6 +918,7 @@ class Symbol:
     _last_type: Optional[str] = None
 
     _passed_to_spimdisasm = False
+    user_segment = False
 
     def __str__(self):
         return self.name
