@@ -6,6 +6,7 @@ import spimdisasm
 
 from intervaltree import IntervalTree
 from ..disassembler import disassembler_instance
+from .. import platforms
 from pathlib import Path
 
 # circular import
@@ -502,8 +503,8 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         if seg.exclusive_ram_id is None:
             initialize_spim_context_do_segment(seg, rom_bytes, global_segment_heater, global_config)
 
-    context_builder = spimdisasm.ContextBuilder(global_segment_heater)
-    # TODO: do not ignore overlays
+    platform_segment = platforms.get_platform_function("platform_segment")()
+    context_builder = spimdisasm.ContextBuilder(global_segment_heater, platform_segment)
 
     # Overlays
     for segment in all_segments:

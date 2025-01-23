@@ -6,7 +6,7 @@ import importlib
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from pathlib import Path
 
-from .. import __package_name__, __version__
+from .. import __package_name__, __version__, platforms
 from ..disassembler import disassembler_instance
 from ..util import cache_handler, progress_bar, vram_classes, statistics
 
@@ -237,13 +237,8 @@ def read_target_binary() -> bytes:
 
 
 def initialize_platform(rom_bytes: bytes):
-    platform_module = importlib.import_module(
-        f"{__package_name__}.platforms.{options.opts.platform}"
-    )
-    platform_init = getattr(platform_module, "init")
+    platform_init = platforms.get_platform_function("init")
     platform_init(rom_bytes)
-
-    return platform_module
 
 
 def initialize_all_symbols(all_segments: List[Segment], rom_bytes: bytes):
