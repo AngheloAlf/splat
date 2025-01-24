@@ -501,6 +501,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
             if sym.user_segment:
                 continue
 
+            if sym._passed_to_spimdisasm:
+                continue
+
             add_symbol_to_segment_builder(global_segment, sym)
 
     global instruction_flags
@@ -670,7 +673,7 @@ def add_symbol_to_segment_builder(builder, sym: "Symbol"):
 
     vram = spimdisasm.Vram(sym.vram_start)
     rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
-    builder.add_symbol(
+    builder.add_user_symbol(
         sym.name, vram, rom, attributes
     )
     sym._passed_to_spimdisasm = True
@@ -709,7 +712,7 @@ def add_symbol_to_user_segment_builder(builder, sym: "Symbol"):
         size = spimdisasm.Size(1)
 
     vram = spimdisasm.Vram(sym.vram_start)
-    builder.add_symbol(
+    builder.add_user_symbol(
         vram, sym.name, size, typ
     )
     sym._passed_to_spimdisasm = True
