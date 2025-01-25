@@ -18,7 +18,7 @@ from . import log, options, progress_bar
 all_symbols: List["Symbol"] = []
 all_symbols_dict: Dict[int, List["Symbol"]] = {}
 all_symbols_ranges = IntervalTree()
-ignored_addresses: Set[int] = set()
+ignored_addresses: Dict[str|None, Dict[int, int]] = dict()
 to_mark_as_defined: Set[str] = set()
 
 # Initialize a spimdisasm context, used to store symbols and functions
@@ -252,15 +252,13 @@ def handle_sym_addrs(
                                 continue
 
             if ignore_sym:
-                if sym.given_size is None or sym.given_size == 0:
-                    ignored_addresses.add(sym.vram_start)
-                else:
-                    # TODO: implement this
-                    # spim_context.addBannedSymbolRangeBySize(
-                    #     sym.vram_start, sym.given_size
-                    # )
-                    pass
-
+                size = 1
+                if sym.given_size is not None and sym.given_size > 0:
+                    size = sym.given_size
+                seg_name = sym.segment.name if sym.segment is not None else None
+                if seg_name not in ignored_addresses:
+                    ignored_addresses[seg_name] = dict()
+                ignored_addresses[seg_name][sym.vram_start] = size
                 continue
 
             if sym.segment is None and sym.rom is not None:
@@ -503,8 +501,12 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
             if sym._passed_to_spimdisasm:
                 continue
-
             add_symbol_to_segment_builder(global_segment, sym)
+
+    ignored_syms_global = ignored_addresses.get(None)
+    if ignored_syms_global is not None:
+        for ignored_vram, ignored_size in ignored_syms_global.items():
+            global_segment.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.Size(ignored_size))
 
     global instruction_flags
     instruction_flags = generate_spimdisasm_instruction_flags()
@@ -544,6 +546,11 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
                     continue
                 add_symbol_to_segment_builder(overlay_builder, sym)
 
+        ignored_syms_global = ignored_addresses.get(segment.name)
+        if ignored_syms_global is not None:
+            for ignored_vram, ignored_size in ignored_syms_global.items():
+                global_segment.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.Size(ignored_size))
+
         overlay_heater = overlay_builder.finish_symbols()
         initialize_spim_context_do_segment(segment, rom_bytes, overlay_heater, global_config)
 
@@ -553,9 +560,6 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     spim_context = context_builder.build(global_config)
 
     for sym in all_symbols:
-        if sym.vram_start in ignored_addresses:
-            # TODO: implement
-            continue
         assert sym._passed_to_spimdisasm, sym
 
 def generate_spimdisasm_instruction_flags():
@@ -1031,5 +1035,5 @@ def reset_symbols():
     all_symbols = []
     all_symbols_dict = {}
     all_symbols_ranges = IntervalTree()
-    ignored_addresses = set()
+    ignored_addresses = dict()
     to_mark_as_defined = set()
