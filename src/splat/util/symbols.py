@@ -432,6 +432,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     )
     global_segment = spimdisasm.GlobalSegmentBuilder(global_ranges)
 
+    if options.opts.platform == "n64":
+        global_segment.n64_default_banned_addresses()
+
     """
     overlaps_found = False
     # Check the vram range of the global segment does not overlap with any overlay segment
@@ -536,6 +539,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         overlay_ranges = spimdisasm.RomVramRange(spimdisasm.Rom(segment.rom_start), spimdisasm.Rom(segment.rom_end), spimdisasm.Vram(segment.vram_start), spimdisasm.Vram(segment.vram_end))
         overlay_category_name = spimdisasm.OverlayCategoryName(ram_id)
         overlay_builder = spimdisasm.OverlaySegmentBuilder(overlay_ranges, overlay_category_name, segment.name)
+
+        if options.opts.platform == "n64":
+            overlay_builder.n64_default_banned_addresses()
 
         for other_segment_name in segment.can_see_segments:
             overlay_builder.add_prioritised_overlay(other_segment_name)
