@@ -549,7 +549,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         ignored_syms_global = ignored_addresses.get(segment.name)
         if ignored_syms_global is not None:
             for ignored_vram, ignored_size in ignored_syms_global.items():
-                global_segment.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.Size(ignored_size))
+                overlay_builder.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.Size(ignored_size))
 
         overlay_heater = overlay_builder.finish_symbols()
         initialize_spim_context_do_segment(segment, rom_bytes, overlay_heater, global_config)
