@@ -3,7 +3,7 @@ from typing import Optional
 import spimdisasm
 import rabbitizer
 
-from ...util import options, symbols, log
+from ...util import options, symbols, log, relocs
 
 from .code import CommonSegCode
 
@@ -185,7 +185,7 @@ class CommonSegCodeSubsegment(Segment):
     def post_process(self):
         if self.spim_section is not None:
             section = self.spim_section.get_section()
-            section.post_process(symbols.spim_context)
+            section.post_process(symbols.spim_context, relocs.all_relocs)
 
             for sym_index in range(section.sym_count()):
                 generated_symbol = symbols.create_symbol_from_spim_symbol(

@@ -15,17 +15,26 @@ class Reloc:
     addend: int = 0
 
 
-all_relocs: Dict[int, Reloc] = {}
+all_relocs = spimdisasm.UserRelocs()
 
 
 def add_reloc(reloc: Reloc):
-    all_relocs[reloc.rom_address] = reloc
+    rom = spimdisasm.Rom(reloc.rom_address)
+    reloc_type = spimdisasm.RelocationType.from_name(f"R_{reloc.reloc_type}")
+    if reloc_type is None:
+        log.error(
+            f"Reloc type '{reloc.reloc_type}' is not valid. Rom address: 0x{reloc.rom_address:X}"
+        )
+
+    sym_name = reloc.symbol_name
+    addend = reloc.addend
+    all_relocs.add_reloc(rom, reloc_type, sym_name, addend)
 
 
 def initialize():
     global all_relocs
 
-    all_relocs = {}
+    all_relocs = spimdisasm.UserRelocs()
 
     for path in options.opts.reloc_addrs_paths:
         if not path.exists():
@@ -108,23 +117,9 @@ def initialize():
             if addend is not None:
                 reloc.addend = addend
 
-            if reloc.rom_address in all_relocs:
-                log.parsing_error_preamble(path, line_num, line)
-                log.error(
-                    f"Duplicated 'rom' address for reloc: 0x{reloc.rom_address:X}"
-                )
+            # if reloc.rom_address in all_relocs:
+            #     log.parsing_error_preamble(path, line_num, line)
+            #     log.error(
+            #         f"Duplicated 'rom' address for reloc: 0x{reloc.rom_address:X}"
+            #     )
             add_reloc(reloc)
-
-
-def initialize_spim_context():
-    for rom_address, reloc in all_relocs.items():
-        reloc_type = spimdisasm.common.RelocType.fromStr(reloc.reloc_type)
-
-        if reloc_type is None:
-            log.error(
-                f"Reloc type '{reloc.reloc_type}' is not valid. Rom address: 0x{rom_address:X}"
-            )
-
-        symbols.spim_context.addGlobalReloc(
-            rom_address, reloc_type, reloc.symbol_name, addend=reloc.addend
-        )
