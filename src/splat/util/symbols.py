@@ -410,7 +410,12 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
 
     assert global_vram_start is not None and global_vram_end is not None and global_vrom_start is not None and global_vrom_end is not None
 
-    global_config = spimdisasm.GlobalConfig(spimdisasm.Endian.Big)
+    if options.opts.endianness == "big":
+        endian = spimdisasm.Endian.Big
+    else:
+        endian = spimdisasm.Endian.Little
+
+    global_config = spimdisasm.GlobalConfig(endian)
     if options.opts.asm_emit_size_directive is not None:
         global_config.set_emit_size_directive(options.opts.asm_emit_size_directive)
 
