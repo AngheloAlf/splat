@@ -590,13 +590,13 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
         if seg.is_text():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-            settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler, instruction_flags)
+            settings = spimdisasm.ExecutableSectionSettings(spimdisasm_compiler, instruction_flags)
             settings.set_detect_redundant_end(options.opts.detect_redundant_function_end)
             segment_heater.preanalyze_text(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.is_rodata():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-            settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+            settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
             encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding if options.opts.string_encoding is not None else "ASCII")
             # print(encoding)
             settings.set_encoding(encoding)
@@ -607,12 +607,12 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
         elif seg.get_linker_section() == ".gcc_except_table":
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-            settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+            settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
             segment_heater.preanalyze_gcc_except_table(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.is_data():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-            settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+            settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
             encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding if options.opts.data_string_encoding is not None else "ASCII")
             # print(encoding)
             settings.set_encoding(encoding)

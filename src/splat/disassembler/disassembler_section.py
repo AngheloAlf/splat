@@ -106,7 +106,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
     ):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-        settings = spimdisasm.SectionNoloadSettings(spimdisasm_compiler)
+        settings = spimdisasm.NoloadSectionSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.Rom(segment_rom_start),
             spimdisasm.Vram(vram_start), # TODO: use segment's vram instead
@@ -132,7 +132,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
     ):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-        settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+        settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
 
         encoding = spimdisasm.Encoding.from_name(options.opts.data_string_encoding if options.opts.data_string_encoding is not None else "ASCII")
         # print(encoding)
@@ -169,7 +169,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
     ):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-        settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+        settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
 
         encoding = spimdisasm.Encoding.from_name(options.opts.string_encoding if options.opts.string_encoding is not None else "ASCII")
         # print(encoding)
@@ -203,7 +203,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
     ):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-        settings = spimdisasm.SectionExecutableSettings(spimdisasm_compiler, symbols.instruction_flags)
+        settings = spimdisasm.ExecutableSectionSettings(spimdisasm_compiler, symbols.instruction_flags)
         settings.set_detect_redundant_end(options.opts.detect_redundant_function_end)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.Rom(segment_rom_start),
@@ -231,7 +231,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
     ):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-        settings = spimdisasm.SectionDataSettings(spimdisasm_compiler)
+        settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.Rom(segment_rom_start),
             spimdisasm.Vram(vram_start), # TODO: use segment's vram instead
