@@ -418,6 +418,8 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     global_config = spimdisasm.GlobalConfig(endian)
     if options.opts.asm_emit_size_directive is not None:
         global_config.set_emit_size_directive(options.opts.asm_emit_size_directive)
+    if options.opts.gp is not None:
+        global_config.set_gp_config(spimdisasm.GpConfig.new_sdata(spimdisasm.GpValue(options.opts.gp)))
 
     macro_labels = spimdisasm.MacroLabels()
     macro_labels.set_func(options.opts.asm_function_macro)
