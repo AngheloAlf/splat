@@ -55,7 +55,7 @@ PSYQ = Compiler(
 
 # PS2
 MWCCPS2 = Compiler("MWCCPS2")
-EEGCC = Compiler("EEGCC")
+EEGCC = Compiler("EEGCC", j_as_branch=False)
 
 compiler_for_name: Dict[str, Compiler] = {
     x.name: x

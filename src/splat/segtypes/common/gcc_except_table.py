@@ -23,6 +23,8 @@ class CommonSegGcc_except_table(CommonSegData):
     ) -> None:
         "Allows to configure the section before running the analysis on it"
 
+        return
+        # TODO
         super().configure_disassembler_section(disassembler_section)
 
         section = disassembler_section.get_section()

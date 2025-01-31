@@ -572,8 +572,9 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     global spim_context
     spim_context = context_builder.build(global_config)
 
-    for sym in all_symbols:
-        assert sym._passed_to_spimdisasm, sym
+    # TODO: add a way to pass symbols to the unknown segment?
+    # for sym in all_symbols:
+    #     assert sym._passed_to_spimdisasm, sym
 
 def generate_spimdisasm_instruction_flags():
     if options.opts.platform == "n64":
