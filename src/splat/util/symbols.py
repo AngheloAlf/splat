@@ -28,7 +28,7 @@ instruction_flags = None
 TRUEY_VALS = ["true", "on", "yes", "y"]
 FALSEY_VALS = ["false", "off", "no", "n"]
 
-splat_sym_types = {"func", "jtbl", "jtbl_label", "label"}
+splat_sym_types = {"func", "jtbl", "jtbl_label", "label", "ehtbl", "ehtbl_label"}
 
 ILLEGAL_FILENAME_CHARS = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
 
@@ -657,6 +657,10 @@ def add_symbol_to_segment_builder(builder, sym: "Symbol"):
         attributes.set_typ(spimdisasm.SymbolType.JumptableLabel)
     elif sym.type == "label":
         attributes.set_typ(spimdisasm.SymbolType.BranchLabel)
+    elif sym.type == "ehtbl":
+        attributes.set_typ(spimdisasm.SymbolType.GccExceptTable)
+    elif sym.type == "ehtbl_label":
+        attributes.set_typ(spimdisasm.SymbolType.GccExceptTableLabel)
     elif sym.type is not None:
         attributes.set_typ(spimdisasm.SymbolType.UserCustom)
 
@@ -719,6 +723,10 @@ def add_symbol_to_user_segment_builder(builder, sym: "Symbol"):
         typ = spimdisasm.SymbolType.JumptableLabel
     elif sym.type == "label":
         typ = spimdisasm.SymbolType.BranchLabel
+    elif sym.type == "ehtbl":
+        typ = spimdisasm.SymbolType.GccExceptTable
+    elif sym.type == "ehtbl_label":
+        typ = spimdisasm.SymbolType.GccExceptTableLabel
     elif sym.type is not None:
         typ = spimdisasm.SymbolType.UserCustom
     else:
@@ -863,6 +871,12 @@ def create_symbol_from_spim_symbol(
     elif typ == spimdisasm.SymbolType.JumptableLabel:
         in_segment = True
         sym_type = "jtbl_label"
+    elif typ == spimdisasm.SymbolType.GccExceptTable:
+        in_segment = True
+        sym_type = "ehtbl"
+    elif typ == spimdisasm.SymbolType.GccExceptTableLabel:
+        in_segment = True
+        sym_type = "ehtbl_label"
 
     if not in_segment:
         if (
@@ -997,6 +1011,10 @@ class Symbol:
             prefix = "jtbl"
         elif self.type in {"jtbl_label", "label"}:
             return f".L{suffix}"
+        elif self.type == "ehtbl":
+            prefix = "ehtbl"
+        elif self.type == "ehtbl_label":
+            prefix = "$LEH"
         else:
             prefix = "D"
 
