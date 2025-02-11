@@ -586,16 +586,17 @@ def initialize(
 
     opts = _parse_yaml(config["options"], config_paths, modes, verbose, disasm_all)
 
-def convert_string_guesser_level(level: int):
+def convert_string_guesser_flags(level: int):
     import spimdisasm
-    if level <= 0:
-        return spimdisasm.StringGuesserLevel.No
-    if level == 1:
-        return spimdisasm.StringGuesserLevel.Conservative
-    if level == 2:
-        return spimdisasm.StringGuesserLevel.MultipleReferences
-    if level == 3:
-        return spimdisasm.StringGuesserLevel.EmptyStrings
-    if level == 4:
-        return spimdisasm.StringGuesserLevel.IgnoreDetectedType
-    return spimdisasm.StringGuesserLevel.Full
+    if level > 4:
+        return spimdisasm.StringGuesserFlags.full()
+    flags = spimdisasm.StringGuesserFlags.no()
+    if level >= 1:
+        flags = flags | spimdisasm.StringGuesserFlags.Basic()
+    if level >= 2:
+        flags = flags | spimdisasm.StringGuesserFlags.MultipleReferences() | spimdisasm.StringGuesserFlags.UnreferencedButSymbolized()
+    if level >= 3:
+        flags = flags | spimdisasm.StringGuesserFlags.EmptyStrings()
+    if level >= 4:
+        flags = flags | spimdisasm.StringGuesserFlags.IgnoreDetectedType()
+    return flags

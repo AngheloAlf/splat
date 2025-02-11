@@ -138,7 +138,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         # print(encoding)
         settings.set_encoding(encoding)
         if options.opts.data_string_guesser_level is not None:
-            settings.set_string_guesser_level(options.convert_string_guesser_level(options.opts.data_string_guesser_level))
+            settings.set_string_guesser_flags(options.convert_string_guesser_flags(options.opts.data_string_guesser_level))
 
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.Rom(segment_rom_start),
@@ -175,7 +175,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
         # print(encoding)
         settings.set_encoding(encoding)
         if options.opts.rodata_string_guesser_level is not None:
-            settings.set_string_guesser_level(options.convert_string_guesser_level(options.opts.rodata_string_guesser_level))
+            settings.set_string_guesser_flags(options.convert_string_guesser_flags(options.opts.rodata_string_guesser_level))
 
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.Rom(segment_rom_start),
