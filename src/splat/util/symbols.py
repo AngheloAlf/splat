@@ -600,7 +600,7 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.ExecutableSectionSettings(spimdisasm_compiler, instruction_flags)
             settings.set_detect_redundant_end(options.opts.detect_redundant_function_end)
-            segment_heater.preanalyze_text(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_text(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.is_rodata():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
@@ -611,12 +611,12 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             if options.opts.rodata_string_guesser_level is not None:
                 settings.set_string_guesser_flags(options.convert_string_guesser_flags(options.opts.rodata_string_guesser_level))
             assert seg.rom_start is not None, seg
-            segment_heater.preanalyze_rodata(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_rodata(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.get_linker_section() == ".gcc_except_table":
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
-            segment_heater.preanalyze_gcc_except_table(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_gcc_except_table(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
         elif seg.is_data():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
@@ -626,7 +626,7 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             settings.set_encoding(encoding)
             if options.opts.data_string_guesser_level is not None:
                 settings.set_string_guesser_flags(options.convert_string_guesser_flags(options.opts.data_string_guesser_level))
-            segment_heater.preanalyze_data(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_data(global_config, settings, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
 
     if isinstance(seg, CommonSegGroup):
         for subseg in seg.subsegments:
