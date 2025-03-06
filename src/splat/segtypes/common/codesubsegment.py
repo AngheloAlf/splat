@@ -105,54 +105,6 @@ class CommonSegCodeSubsegment(Segment):
 
         # self.spim_section.set_comment_offset(self.rom_start)
 
-    def process_insns(
-        self,
-        func_spim,
-    ):
-        assert isinstance(self.parent, CommonSegCode)
-        assert func_spim.vram is not None
-        assert func_spim.vramEnd is not None
-        assert self.spim_section is not None
-        self.parent: CommonSegCode = self.parent
-
-        symbols.create_symbol_from_spim_symbol(
-            self.get_most_parent(), func_spim.contextSym
-        )
-
-        # Gather symbols found by spimdisasm and create those symbols in splat's side
-        for referenced_vram in func_spim.instrAnalyzer.referencedVrams:
-            context_sym = self.spim_section.get_section().getSymbol(
-                referenced_vram, tryPlusOffset=False
-            )
-            if context_sym is not None:
-                symbols.create_symbol_from_spim_symbol(
-                    self.get_most_parent(), context_sym
-                )
-
-        # Main loop
-        for i, insn in enumerate(func_spim.instructions):
-            if options.opts.platform == "ps2":
-                from .c import CommonSegC
-                from rabbitizer import TrinaryValue
-
-                if isinstance(self, CommonSegC):
-                    insn.flag_r5900UseDollar = TrinaryValue.FALSE
-                else:
-                    insn.flag_r5900UseDollar = TrinaryValue.TRUE
-                insn.flag_r5900DisasmAsData = TrinaryValue.TRUE
-
-            instr_offset = i * 4
-
-            # update pointer accesses from this function
-            if instr_offset in func_spim.instrAnalyzer.symbolInstrOffset:
-                sym_address = func_spim.instrAnalyzer.symbolInstrOffset[instr_offset]
-
-                context_sym = self.spim_section.get_section().getSymbol(sym_address)
-                if context_sym is not None:
-                    symbols.create_symbol_from_spim_symbol(
-                        self.get_most_parent(), context_sym
-                    )
-
     def print_file_boundaries(self):
         return
         if not self.show_file_boundaries or not self.spim_section:
@@ -195,10 +147,11 @@ class CommonSegCodeSubsegment(Segment):
                 generated_symbol.linker_section = self.get_linker_section_linksection()
 
                 for label_index in range(section.label_count_for_sym(sym_index)):
-                    generated_label = symbols.create_symbol_from_spim_symbol(
+                    generated_label = symbols.create_symbol_from_spim_label(
                         self.get_most_parent(), *section.get_label_info(symbols.spim_context, sym_index, label_index)
                     )
-                    section.set_label_name(symbols.spim_context, sym_index, label_index, generated_label.name)
+                    if generated_label is not None:
+                        section.set_label_name(symbols.spim_context, sym_index, label_index, generated_label.name)
 
 
     def should_scan(self) -> bool:

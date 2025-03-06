@@ -34,7 +34,7 @@ SN64 = Compiler(
     j_as_branch=True,
 )
 
-IDO = Compiler("IDO", asm_emit_size_directive=False)
+IDO = Compiler("IDO", asm_emit_size_directive=False, j_as_branch=True)
 
 KMC = Compiler(
     "KMC",

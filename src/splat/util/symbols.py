@@ -584,9 +584,11 @@ def generate_spimdisasm_instruction_flags():
     elif options.opts.platform == "psp":
         instruction_flags = spimdisasm.InstructionFlags.new_extension(spimdisasm.IsaExtension.R4000ALLEGREX)
     elif options.opts.platform == "ps2":
-        instruction_flags = spimdisasm.InstructionFlags.new_extension(spimdisasm.IsaExtension.R5900)
+        instruction_flags = spimdisasm.InstructionFlags.new_extension(spimdisasm.IsaExtension.R5900EE)
     else:
         assert False, options.opts.platform
+    instruction_flags.set_pseudo_beqzl(False)
+    instruction_flags.set_pseudo_bnezl(False)
     instruction_flags.set_j_as_branch(options.opts.compiler.j_as_branch)
     return instruction_flags
 
@@ -653,14 +655,11 @@ def add_symbol_to_segment_builder(builder, sym: "Symbol"):
         attributes.set_typ(spimdisasm.SymbolType.Function)
     elif sym.type == "jtbl":
         attributes.set_typ(spimdisasm.SymbolType.Jumptable)
-    elif sym.type == "jtbl_label":
-        attributes.set_typ(spimdisasm.SymbolType.JumptableLabel)
-    elif sym.type == "label":
-        attributes.set_typ(spimdisasm.SymbolType.BranchLabel)
     elif sym.type == "ehtbl":
         attributes.set_typ(spimdisasm.SymbolType.GccExceptTable)
-    elif sym.type == "ehtbl_label":
-        attributes.set_typ(spimdisasm.SymbolType.GccExceptTableLabel)
+    elif sym.type in {"jtbl_label", "label", "ehtbl_label"}:
+        add_label_to_segment_builder(builder, sym)
+        return
     elif sym.type is not None:
         attributes.set_typ(spimdisasm.SymbolType.UserCustom)
 
@@ -691,14 +690,30 @@ def add_symbol_to_segment_builder(builder, sym: "Symbol"):
     if sym.given_visibility:
         attributes.set_visibility(sym.given_visibility)
 
-
-
     vram = spimdisasm.Vram(sym.vram_start)
     rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
     builder.add_user_symbol(
         sym.name, vram, rom, attributes
     )
     sym._passed_to_spimdisasm = True
+
+def add_label_to_segment_builder(builder, sym: "Symbol"):
+    if sym.type == "jtbl_label":
+        label_type = spimdisasm.LabelType.Jumptable
+    elif sym.type == "label":
+        label_type = spimdisasm.LabelType.Branch
+    elif sym.type == "ehtbl_label":
+        label_type = spimdisasm.LabelType.GccExceptTable
+    else:
+        assert False, sym.type
+
+    vram = spimdisasm.Vram(sym.vram_start)
+    rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
+    builder.add_user_label(
+        sym.name, vram, rom, label_type
+    )
+    sym._passed_to_spimdisasm = True
+
 
 def add_symbol_to_user_segment_builder(builder, sym: "Symbol"):
     if sym.type in ("u8", "s8"):
@@ -719,14 +734,14 @@ def add_symbol_to_user_segment_builder(builder, sym: "Symbol"):
         typ = spimdisasm.SymbolType.Function
     elif sym.type == "jtbl":
         typ = spimdisasm.SymbolType.Jumptable
-    elif sym.type == "jtbl_label":
-        typ = spimdisasm.SymbolType.JumptableLabel
-    elif sym.type == "label":
-        typ = spimdisasm.SymbolType.BranchLabel
+    # elif sym.type == "jtbl_label":
+    #     typ = spimdisasm.SymbolType.JumptableLabel
+    # elif sym.type == "label":
+    #     typ = spimdisasm.SymbolType.BranchLabel
     elif sym.type == "ehtbl":
         typ = spimdisasm.SymbolType.GccExceptTable
-    elif sym.type == "ehtbl_label":
-        typ = spimdisasm.SymbolType.GccExceptTableLabel
+    # elif sym.type == "ehtbl_label":
+    #     typ = spimdisasm.SymbolType.GccExceptTableLabel
     elif sym.type is not None:
         typ = spimdisasm.SymbolType.UserCustom
     else:
@@ -865,18 +880,9 @@ def create_symbol_from_spim_symbol(
         sym_type = "jtbl"
     elif typ == spimdisasm.SymbolType.Function:
         sym_type = "func"
-    elif typ == spimdisasm.SymbolType.BranchLabel:
-        in_segment = True
-        sym_type = "label"
-    elif typ == spimdisasm.SymbolType.JumptableLabel:
-        in_segment = True
-        sym_type = "jtbl_label"
     elif typ == spimdisasm.SymbolType.GccExceptTable:
         in_segment = True
         sym_type = "ehtbl"
-    elif typ == spimdisasm.SymbolType.GccExceptTableLabel:
-        in_segment = True
-        sym_type = "ehtbl_label"
 
     if not in_segment:
         if (
@@ -896,6 +902,52 @@ def create_symbol_from_spim_symbol(
 
     if siz is not None:
         sym.given_size = siz.inner()
+    if rom is not None:
+        sym.rom = rom.inner()
+    if is_defined:
+        sym.defined = True
+    if reference_counter > 0:
+        sym.referenced = True
+
+    return sym
+
+def create_symbol_from_spim_label(
+    segment: "Segment",
+    vram: int,
+    rom,
+    typ,
+    is_defined: bool,
+    reference_counter: int,
+) -> "Symbol|None":
+    in_segment = True
+
+    sym_type = None
+    if typ == spimdisasm.LabelType.Branch:
+        sym_type = "label"
+    elif typ == spimdisasm.LabelType.Jumptable:
+        sym_type = "jtbl_label"
+    elif typ == spimdisasm.LabelType.GccExceptTable:
+        sym_type = "ehtbl_label"
+    elif typ == spimdisasm.LabelType.AlternativeEntry:
+        sym_type = "aent_label"
+    else:
+        assert False, typ
+
+    sym = segment.get_symbol(
+        vram, in_segment, type=sym_type, reference=True
+    )
+
+    if sym is not None:
+        if sym.type is not None and "label" not in sym.type:
+            return None
+    else:
+        sym = segment.create_symbol(
+            vram, in_segment, type=sym_type, reference=True
+        )
+
+    if sym.type is not None and "label" not in sym.type:
+        return None
+
     if rom is not None:
         sym.rom = rom.inner()
     if is_defined:
@@ -1015,6 +1067,8 @@ class Symbol:
             prefix = "ehtbl"
         elif self.type == "ehtbl_label":
             prefix = "$LEH"
+        elif self.type == "aent_label":
+            prefix = "aent"
         else:
             prefix = "D"
 
