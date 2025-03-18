@@ -183,6 +183,17 @@ class CommonSegCodeSubsegment(Segment):
                 )
             print(f"      - [0x{self.rom_start+in_file_offset:X}, {self.type}]")
 
+        suspected_garbage = self.spim_section.get_section().suspectedPaddingGarbage()
+        if len(suspected_garbage) > 0:
+            print(
+                f"\nSome padding garbage data is suspected to be found in segment {self.name} ({self.type})"
+            )
+            print(
+                "File split suggestions for this segment will follow in config yaml format:"
+            )
+            for in_file_offset in suspected_garbage:
+                print(f"      - [0x{self.rom_start+in_file_offset:X}, {self.type}]")
+
     def should_scan(self) -> bool:
         return (
             options.opts.is_mode_active("code")

@@ -1,5 +1,10 @@
 # splat Release Notes
 
+### 0.33.1
+
+* Try to report file splits by trying to detect garbage padding instructions.
+* `spimdisasm` 1.XX.Y or above is now required.
+
 ### 0.33.0
 
 * BREAKING: Move splat config loading and parsing into "splat.util.conf" to modularize this part of the code and allow projects to interface with segment loading more gracefully.
@@ -11,8 +16,8 @@
 
 ### 0.32.3
 
-- Fix "unrecognized YAML option" error if disassemble_all is provided via CLI and as a YAML option.
-- Slightly speed up `bss` disassembly for projects over thousands of subsegments in the same top-level segment.
+* Fix "unrecognized YAML option" error if disassemble_all is provided via CLI and as a YAML option.
+* Slightly speed up `bss` disassembly for projects over thousands of subsegments in the same top-level segment.
 
 ### 0.32.2
 
