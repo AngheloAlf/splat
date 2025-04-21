@@ -590,6 +590,15 @@ def generate_spimdisasm_instruction_flags():
     instruction_flags.set_pseudo_beqzl(False)
     instruction_flags.set_pseudo_bnezl(False)
     instruction_flags.set_j_as_branch(options.opts.compiler.j_as_branch)
+
+    if options.opts.mips_abi_float_regs != "numeric":
+        abi = options.opts.mips_abi_float_regs
+    elif options.opts.platform == "ps2":
+        abi = "eabi64"
+    else:
+        abi = "o32"
+    instruction_flags.set_abi(spimdisasm.Abi.from_name(abi))
+
     return instruction_flags
 
 def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment_heater, global_config):
