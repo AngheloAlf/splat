@@ -216,10 +216,10 @@ Emit an alignment directive in the disassembly for the symbol with the given val
 
 The symbol's address must already be aligned to the given custom alignment, otherwise the alignment will be discarded.
 
-This value is expected to be the `log2` of the actual alignment value. For example passing `3` to this value will result on an final alignment of `8` bytes.
+This value must be a power of two, otherwise it will be discarded.
 
 **Example**
 
 ```ini
-rgb_texture = 0x82013118; // align:3
+rgb_texture = 0x82013118; // align:0x8
 ```
