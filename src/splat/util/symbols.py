@@ -192,6 +192,9 @@ def handle_sym_addrs(
                             if attr_name == "function_owner":
                                 sym.function_owner = attr_val
                                 continue
+                            if attr_name == "align":
+                                sym.given_align = int(attr_val, 0)
+                                continue
                         except:
                             log.parsing_error_preamble(path, line_num, line)
                             log.write(
@@ -520,6 +523,8 @@ def add_symbol_to_spim_segment(
         context_sym.nameEnd = sym.given_name_end
     if sym.given_visibility:
         context_sym.visibility = sym.given_visibility
+    if sym.given_align:
+        context_sym.setAlignment(sym.given_align)
 
     return context_sym
 
@@ -568,6 +573,8 @@ def add_symbol_to_spim_section(
         context_sym.nameEnd = sym.given_name_end
     if sym.given_visibility:
         context_sym.visibility = sym.given_visibility
+    if sym.given_align:
+        context_sym.setAlignment(sym.given_align)
 
     return context_sym
 
@@ -666,6 +673,8 @@ class Symbol:
 
     given_filename: Optional[str] = None
     given_visibility: Optional[str] = None
+
+    given_align: Optional[int] = None
 
     _generated_default_name: Optional[str] = None
     _last_type: Optional[str] = None
