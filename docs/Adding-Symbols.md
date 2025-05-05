@@ -209,3 +209,17 @@ __opPCc__Q23std34_RefCountedPtr<c,Q23std9_Array<c>>CFv = 0x00202850; // filename
 ```
 
 Gets written to `func_00202850.s`
+
+### `align`
+
+Emit an alignment directive in the disassembly for the symbol with the given value.
+
+The symbol's address must already be aligned to the given custom alignment, otherwise the alignment will be discarded.
+
+This value is expected to be the `log2` of the actual alignment value. For example passing `3` to this value will result on an final alignment of `8` bytes.
+
+**Example**
+
+```ini
+rgb_texture = 0x82013118; // align:3
+```

@@ -1,9 +1,19 @@
 # splat Release Notes
 
+### 0.34.0
+
+* Add new symbol attribute: `align`.
+  * Emit an alignment directive in the disassembly for the symbol with the given value.
+  * The symbol's address must already be aligned to the given custom alignment, otherwise the alignment will be discarded.
+  * This value is expected to be the `log2` of the actual alignment value. For example passing `3` to this value will result on an final alignment of `8` bytes.
+* `spimdisasm` 1.XX.0 or above is now required.
+
 ### 0.33.2
+
 * Change `make_full_disasm_for_code` to output other sections for the TU in addition to .text.
 
 ### 0.33.1
+
 * Fix `hasm` segments overwriting files already on disk
 
 ### 0.33.0
