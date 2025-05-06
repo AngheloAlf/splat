@@ -594,7 +594,7 @@ def convert_string_guesser_flags(level: int):
     if level >= 1:
         flags = flags | spimdisasm.StringGuesserFlags.Basic() | spimdisasm.StringGuesserFlags.AllowUnalignedDereferences()
     if level >= 2:
-        flags = flags | spimdisasm.StringGuesserFlags.MultipleReferences() | spimdisasm.StringGuesserFlags.UnreferencedButSymbolized() | spimdisasm.StringGuesserFlags.AllowMixedAlignedDereferences()
+        flags = flags | spimdisasm.StringGuesserFlags.MultipleReferences() | spimdisasm.StringGuesserFlags.UnreferencedButSymbolized() | spimdisasm.StringGuesserFlags.UnreferencedAfterZeroPadding() | spimdisasm.StringGuesserFlags.AllowMixedAlignedDereferences()
     if level >= 3:
         flags = flags | spimdisasm.StringGuesserFlags.EmptyStrings()
     if level >= 4:
