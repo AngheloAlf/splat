@@ -132,7 +132,7 @@ class CommonSegBss(CommonSegData):
 
             f.write(f"{self.get_section_asm_line()}\n\n")
 
-            settings = spimdisasm.SymNoloadDisplaySettings()
+            settings = spimdisasm.SymNobitsDisplaySettings()
             settings.set_rom_comment_width(6 if options.opts.rom_address_padding else 0 )
 
             sym_count = self.spim_section.get_section().sym_count()

@@ -106,7 +106,7 @@ class SpimdisasmDisassemberSection(DisassemblerSection):
     ):
         selected_compiler = options.opts.compiler
         spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
-        settings = spimdisasm.NoloadSectionSettings(spimdisasm_compiler)
+        settings = spimdisasm.NobitsSectionSettings(spimdisasm_compiler)
         parent_segment_info = spimdisasm.ParentSegmentInfo(
             spimdisasm.Rom(segment_rom_start),
             spimdisasm.Vram(vram_start), # TODO: use segment's vram instead

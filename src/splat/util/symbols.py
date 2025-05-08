@@ -415,7 +415,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     else:
         endian = spimdisasm.Endian.Little
 
-    global_config = spimdisasm.GlobalConfig(endian)
+    global_config = spimdisasm.GlobalConfigBuilder(endian)
     if options.opts.asm_emit_size_directive is not None:
         global_config.set_emit_size_directive(options.opts.asm_emit_size_directive)
     if options.opts.gp is not None:
@@ -430,6 +430,8 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     macro_labels.set_data(options.opts.asm_data_macro)
     # macro_labels.set_data_end(options.opts.asm_data_end_macro)
     global_config.set_macro_labels(macro_labels)
+
+    global_config = global_config.build()
 
     global_ranges = spimdisasm.RomVramRange(
         spimdisasm.Rom(global_vrom_start),
@@ -516,7 +518,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     ignored_syms_global = ignored_addresses.get(None)
     if ignored_syms_global is not None:
         for ignored_vram, ignored_size in ignored_syms_global.items():
-            global_segment.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.Size(ignored_size))
+            global_segment.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.UserSize(ignored_size))
 
     global instruction_flags
     instruction_flags = generate_spimdisasm_instruction_flags()
@@ -562,7 +564,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         ignored_syms_global = ignored_addresses.get(segment.name)
         if ignored_syms_global is not None:
             for ignored_vram, ignored_size in ignored_syms_global.items():
-                overlay_builder.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.Size(ignored_size))
+                overlay_builder.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.UserSize(ignored_size))
 
         overlay_heater = overlay_builder.finish_symbols()
         initialize_spim_context_do_segment(segment, rom_bytes, overlay_heater, global_config)
@@ -675,7 +677,7 @@ def add_symbol_to_segment_builder(builder, sym: "Symbol"):
     if sym.defined:
         attributes.set_defined(True)
     if sym.given_size is not None:
-        attributes.set_size(spimdisasm.Size(sym.given_size))
+        attributes.set_size(spimdisasm.UserSize(sym.given_size))
 
     if sym.function_owner is not None:
         attributes.set_migration_behavior(spimdisasm.RodataMigrationBehavior.MigrateToSpecificFunction(sym.function_owner))
@@ -757,9 +759,9 @@ def add_symbol_to_user_segment_builder(builder, sym: "Symbol"):
         typ = None
 
     if sym.given_size is not None:
-        size = spimdisasm.Size(sym.given_size)
+        size = spimdisasm.UserSize(sym.given_size)
     else:
-        size = spimdisasm.Size(1)
+        size = spimdisasm.UserSize(1)
 
     vram = spimdisasm.Vram(sym.vram_start)
     builder.add_user_symbol(
