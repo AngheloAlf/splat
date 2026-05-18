@@ -19,7 +19,7 @@ all_relocs = spimdisasm.UserRelocs()
 
 
 def add_reloc(reloc: Reloc):
-    rom = spimdisasm.Rom(reloc.rom_address)
+    rom = reloc.rom_address
     reloc_type = spimdisasm.RelocationType.from_name(f"R_{reloc.reloc_type}")
     if reloc_type is None:
         log.error(

@@ -353,7 +353,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
     if options.opts.asm_emit_size_directive is not None:
         global_config.set_emit_size_directive(options.opts.asm_emit_size_directive)
     if options.opts.gp is not None:
-        global_config.set_gp_config(spimdisasm.GpConfig.new_sdata(spimdisasm.GpValue(options.opts.gp)))
+        global_config.set_gp_config(spimdisasm.GpConfig.new_sdata(options.opts.gp))
 
     macro_labels = spimdisasm.MacroLabels()
     macro_labels.set_func(options.opts.asm_function_macro)
@@ -381,8 +381,13 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
             # Skip overlays
             continue
 
-        global_ranges = spimdisasm.RomVramRange(spimdisasm.Rom(segment.rom_start), spimdisasm.Rom(segment.rom_end), spimdisasm.Vram(segment.vram_start), spimdisasm.Vram(segment.vram_end))
-        global_segment_builder = spimdisasm.GlobalSegmentBuilder(segment.name, global_ranges)
+        global_segment_builder = spimdisasm.GlobalSegmentBuilder(
+            segment.name,
+            segment.rom_start,
+            segment.rom_end,
+            segment.vram_start,
+            segment.vram_end,
+        )
 
         if options.opts.platform == "n64":
             global_segment_builder.n64_default_banned_addresses()
@@ -401,12 +406,12 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         ignored_syms_global = ignored_addresses.get(None)
         if ignored_syms_global is not None:
             for ignored_vram, ignored_size in ignored_syms_global.items():
-                global_segment_builder.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.UserSize(ignored_size))
+                global_segment_builder.add_ignored_address_range(ignored_vram, ignored_size)
 
         ignored_syms_global = ignored_addresses.get(segment.name)
         if ignored_syms_global is not None:
             for ignored_vram, ignored_size in ignored_syms_global.items():
-                global_segment_builder.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.UserSize(ignored_size))
+                global_segment_builder.add_ignored_address_range(ignored_vram, ignored_size)
 
         global_heater = global_segment_builder.finish_symbols()
         initialize_spim_context_do_segment(segment, rom_bytes, global_heater, global_config)
@@ -422,9 +427,15 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         if ram_id is None:
             continue
 
-        overlay_ranges = spimdisasm.RomVramRange(spimdisasm.Rom(segment.rom_start), spimdisasm.Rom(segment.rom_end), spimdisasm.Vram(segment.vram_start), spimdisasm.Vram(segment.vram_end))
         overlay_category_name = spimdisasm.OverlayCategoryName(ram_id)
-        overlay_builder = spimdisasm.OverlaySegmentBuilder(segment.name, overlay_ranges, overlay_category_name)
+        overlay_builder = spimdisasm.OverlaySegmentBuilder(
+            segment.name,
+            segment.rom_start,
+            segment.rom_end,
+            segment.vram_start,
+            segment.vram_end,
+            overlay_category_name,
+        )
 
         if options.opts.platform == "n64":
             overlay_builder.n64_default_banned_addresses()
@@ -441,7 +452,7 @@ def initialize_spim_context(all_segments: "List[Segment]", rom_bytes: bytes) -> 
         ignored_syms_global = ignored_addresses.get(segment.name)
         if ignored_syms_global is not None:
             for ignored_vram, ignored_size in ignored_syms_global.items():
-                overlay_builder.add_ignored_address_range(spimdisasm.Vram(ignored_vram), spimdisasm.UserSize(ignored_size))
+                overlay_builder.add_ignored_address_range(ignored_vram, ignored_size)
 
         overlay_heater = overlay_builder.finish_symbols()
         initialize_spim_context_do_segment(segment, rom_bytes, overlay_heater, global_config)
@@ -498,7 +509,7 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.ExecutableSectionSettings(spimdisasm_compiler, instruction_flags)
             settings.set_detect_redundant_end(options.opts.detect_redundant_function_end)
-            segment_heater.preheat_text(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_text(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], seg.rom_start, seg.vram_start)
         elif seg.is_rodata():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
@@ -509,12 +520,12 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             if options.opts.rodata_string_guesser_level is not None:
                 settings.set_string_guesser_flags(options.convert_string_guesser_flags(options.opts.rodata_string_guesser_level))
             assert seg.rom_start is not None, seg
-            segment_heater.preheat_rodata(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_rodata(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], seg.rom_start, seg.vram_start)
         elif seg.get_linker_section() == ".gcc_except_table":
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
             settings = spimdisasm.DataSectionSettings(spimdisasm_compiler)
-            segment_heater.preheat_gcc_except_table(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_gcc_except_table(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], seg.rom_start, seg.vram_start)
         elif seg.is_data():
             selected_compiler = options.opts.compiler
             spimdisasm_compiler = spimdisasm.Compiler.from_name(selected_compiler.name)
@@ -524,7 +535,7 @@ def initialize_spim_context_do_segment(seg: "Segment", rom_bytes: bytes, segment
             settings.set_encoding(encoding)
             if options.opts.data_string_guesser_level is not None:
                 settings.set_string_guesser_flags(options.convert_string_guesser_flags(options.opts.data_string_guesser_level))
-            segment_heater.preheat_data(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], spimdisasm.Rom(seg.rom_start), spimdisasm.Vram(seg.vram_start))
+            segment_heater.preheat_data(global_config, settings, seg.name, rom_bytes[seg.rom_start:seg.rom_end], seg.rom_start, seg.vram_start)
 
     if isinstance(seg, CommonSegGroup):
         for subseg in seg.subsegments:
@@ -562,7 +573,7 @@ def add_symbol_to_segment_builder(builder, sym: "Symbol"):
     if sym.defined:
         attributes.set_defined(True)
     if sym.given_size is not None:
-        attributes.set_size(spimdisasm.UserSize(sym.given_size))
+        attributes.set_size(sym.given_size)
 
     if sym.function_owner is not None:
         attributes.set_migration_behavior(spimdisasm.RodataMigrationBehavior.MigrateToSpecificFunction(sym.function_owner))
@@ -586,8 +597,8 @@ def add_symbol_to_segment_builder(builder, sym: "Symbol"):
     if sym.given_visibility:
         attributes.set_visibility(sym.given_visibility)
 
-    vram = spimdisasm.Vram(sym.vram_start)
-    rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
+    vram = sym.vram_start
+    rom = sym.rom if sym.rom is not None else None
     builder.add_user_symbol(
         sym.name, vram, rom, attributes
     )
@@ -603,8 +614,8 @@ def add_label_to_segment_builder(builder, sym: "Symbol"):
     else:
         assert False, sym.type
 
-    vram = spimdisasm.Vram(sym.vram_start)
-    rom = spimdisasm.Rom(sym.rom) if sym.rom is not None else None
+    vram = sym.vram_start
+    rom = sym.rom if sym.rom is not None else None
     builder.add_user_label(
         sym.name, vram, rom, label_type
     )
@@ -644,11 +655,11 @@ def add_symbol_to_user_segment_builder(builder, sym: "Symbol"):
         typ = None
 
     if sym.given_size is not None:
-        size = spimdisasm.UserSize(sym.given_size)
+        size = sym.given_size
     else:
-        size = spimdisasm.UserSize(1)
+        size = 1
 
-    vram = spimdisasm.Vram(sym.vram_start)
+    vram = sym.vram_start
     builder.add_user_symbol(
         vram, sym.name, size, typ
     )
@@ -760,15 +771,17 @@ def add_symbol_to_spim_section(
 
 def create_symbol_from_spim_symbol(
     segment: "Segment",
-    vram: int,
-    rom,
-    typ,
-    siz,
-    is_defined: bool,
-    reference_counter: int,
-    overlay_category: str,
+    sym_info,
 ) -> "Symbol":
     in_segment = False
+
+    vram = sym_info.vram()
+    rom = sym_info.rom()
+    typ = sym_info.sym_type()
+    siz = sym_info.size()
+    is_defined = sym_info.is_defined()
+    reference_counter = sym_info.reference_counter()
+    overlay_category = sym_info.overlay_category()
 
     sym_type = None
     if typ == spimdisasm.SymbolType.Jumptable:
@@ -788,7 +801,7 @@ def create_symbol_from_spim_symbol(
             in_segment = segment.contains_vram(vram)
         elif overlay_category == segment.get_exclusive_ram_id():
             if rom is not None:
-                in_segment = segment.contains_rom(rom.inner())
+                in_segment = segment.contains_rom(rom)
             else:
                 in_segment = segment.contains_vram(vram)
 
@@ -797,9 +810,9 @@ def create_symbol_from_spim_symbol(
     )
 
     if siz is not None:
-        sym.given_size = siz.inner()
+        sym.given_size = siz
     if rom is not None:
-        sym.rom = rom.inner()
+        sym.rom = rom
     if is_defined:
         sym.defined = True
     if reference_counter > 0:
@@ -845,7 +858,7 @@ def create_symbol_from_spim_label(
         return None
 
     if rom is not None:
-        sym.rom = rom.inner()
+        sym.rom = rom
     if is_defined:
         sym.defined = True
     if reference_counter > 0:

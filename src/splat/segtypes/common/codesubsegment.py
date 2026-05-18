@@ -141,7 +141,7 @@ class CommonSegCodeSubsegment(Segment):
 
             for sym_index in range(section.sym_count()):
                 generated_symbol = symbols.create_symbol_from_spim_symbol(
-                    self.get_most_parent(), *section.get_sym_info(symbols.spim_context, sym_index)
+                    self.get_most_parent(), section.get_sym_info(symbols.spim_context, sym_index)
                 )
                 section.set_sym_name(symbols.spim_context, sym_index, generated_symbol.name)
                 generated_symbol.linker_section = self.get_linker_section_linksection()

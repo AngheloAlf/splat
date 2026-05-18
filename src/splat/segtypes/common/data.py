@@ -154,7 +154,7 @@ class CommonSegData(CommonSegCodeSubsegment, CommonSegGroup):
 
         for sym_index in range(self.spim_section.get_section().sym_count()):
             generated_symbol = symbols.create_symbol_from_spim_symbol(
-                self.get_most_parent(), *self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
+                self.get_most_parent(), self.spim_section.get_section().get_sym_info(symbols.spim_context, sym_index)
             )
             self.spim_section.get_section().set_sym_name(symbols.spim_context, sym_index, generated_symbol.name)
 
