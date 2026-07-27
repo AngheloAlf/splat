@@ -10,7 +10,7 @@ from typing import List, Tuple
 from src.splat import __version__
 from src.splat.disassembler import disassembler_instance
 from src.splat.scripts.split import main
-from src.splat.util import symbols, options
+from src.splat.util import symbols, options, metadata
 from src.splat.segtypes.common.rodata import CommonSegRodata
 from src.splat.segtypes.common.code import CommonSegCode
 from src.splat.segtypes.common.c import CommonSegC
@@ -188,7 +188,7 @@ class Symbols(unittest.TestCase):
         for type in spim_types:
             assert symbols.check_valid_type(type)
 
-    def test_add_symbol_to_spim_segment(self):
+    def test_add_symbol_to_spimdisasm_segment(self):
         segment = spimdisasm.common.SymbolsSegment(
             context=spimdisasm.common.Context(),
             vromStart=0x0,
@@ -201,28 +201,7 @@ class Symbols(unittest.TestCase):
         sym.defined = True
         sym.rom = 0x0
         sym.type = "func"
-        result = symbols.add_symbol_to_spim_segment(segment, sym)
-        assert result.type == spimdisasm.common.SymbolSpecialType.function
-        assert sym.user_declared == result.isUserDeclared
-        assert sym.defined == result.isDefined
-
-    def test_add_symbol_to_spim_section(self):
-        section = spimdisasm.mips.sections.SectionBase(
-            context=spimdisasm.common.Context(),
-            vromStart=0x0,
-            vromEnd=0x10,
-            vram=0x40000000,
-            filename="test",
-            words=[],
-            sectionType=spimdisasm.common.FileSectionType.Text,
-            segmentVromStart=0x0,
-            overlayCategory=None,
-        )
-        sym = symbols.Symbol(0x100)
-        sym.type = "func"
-        sym.user_declared = False
-        sym.defined = True
-        result = symbols.add_symbol_to_spim_section(section, sym)
+        result = symbols.add_symbol_to_spimdisasm_segment(segment, sym)
         assert result.type == spimdisasm.common.SymbolSpecialType.function
         assert sym.user_declared == result.isUserDeclared
         assert sym.defined == result.isDefined
@@ -253,7 +232,7 @@ class Symbols(unittest.TestCase):
             segment=spimdisasm_segment,
         )
         result = symbols.create_symbol_from_spim_symbol(
-            segment, context_sym, force_in_segment=False
+            segment, segment, context_sym, force_in_segment=False
         )
         assert result.referenced
         assert result.extract
@@ -273,7 +252,7 @@ def get_yaml():
 
 
 class Rodata(unittest.TestCase):
-    def test_disassemble_data(self):
+    def test_disassemble_rodata(self):
         test_init()
         common_seg_rodata = CommonSegRodata(
             rom_start=0x0,
@@ -284,13 +263,17 @@ class Rodata(unittest.TestCase):
             args=[],
             yaml={},
         )
+        metadata.segment_manager.initialize([common_seg_rodata], [])
+        symbols.initialize_spim_context(metadata.segment_manager.manager)
+
         rom_data = list(range(0x100))
         common_seg_rodata.disassemble_data(bytes(rom_data))
         assert common_seg_rodata.spim_section is not None
         assert common_seg_rodata.spim_section.get_section().words[0] == 0x0010203
-        assert symbols.get_all_symbols()[0].vram_start == 0x400
-        assert symbols.get_all_symbols()[0].segment == common_seg_rodata
-        assert symbols.get_all_symbols()[0].linker_section == ".rodata"
+        sym = symbols.get_all_symbols()[0]
+        assert sym.vram_start == 0x400, f"{sym.vram_start=}"
+        assert sym.segment == common_seg_rodata, f"{sym.segment=}"
+        assert sym.linker_section == ".rodata", f"{sym.linker_section=}"
 
     def test_get_possible_text_subsegment_for_symbol(self):
         context = spimdisasm.common.Context()
@@ -435,7 +418,7 @@ class SymbolsInitialize(unittest.TestCase):
         test_init()
 
         sym_addrs_lines = [
-            "func_1 = 0x100; // type:func size:10 rom:100 segment:test_segment name_end:the_name_end "
+            "func_1 = 0x300; // type:func size:10 rom:0x100 segment:test_segment name_end:the_name_end "
         ]
 
         all_segments = [
@@ -454,7 +437,7 @@ class SymbolsInitialize(unittest.TestCase):
         assert symbols.all_symbols[0].given_name == "func_1"
         assert symbols.all_symbols[0].type == "func"
         assert symbols.all_symbols[0].given_size == 10
-        assert symbols.all_symbols[0].rom == 100
+        assert symbols.all_symbols[0].rom == 0x100
         assert symbols.all_symbols[0].segment == all_segments[0]
         assert symbols.all_symbols[0].given_name_end == "the_name_end"
 
@@ -545,7 +528,9 @@ class InitializeSpimContext(unittest.TestCase):
         # force this since it's hard to set up
         all_segments[0].exclusive_ram_id = "overlay"
 
-        symbols.initialize_spim_context(all_segments)
+        metadata.segment_manager.initialize(all_segments, symbols.all_symbols)
+
+        symbols.initialize_spim_context(metadata.segment_manager.manager)
         # spim should have added something to overlaySegments
         assert (
             type(symbols.spim_context.overlaySegments["overlay"][0x1000])
@@ -584,9 +569,11 @@ class InitializeSpimContext(unittest.TestCase):
             )
         ]
 
+        metadata.segment_manager.initialize(all_segments, symbols.all_symbols)
+
         assert symbols.spim_context.globalSegment.vramStart == 0x80000000
         assert symbols.spim_context.globalSegment.vramEnd == 0x80001000
-        symbols.initialize_spim_context(all_segments)
+        symbols.initialize_spim_context(metadata.segment_manager.manager)
         assert symbols.spim_context.globalSegment.vramStart == 0x100
         assert symbols.spim_context.globalSegment.vramEnd == 0x2C0
 
