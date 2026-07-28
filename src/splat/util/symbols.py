@@ -118,6 +118,7 @@ def handle_sym_addrs(
                 raise
 
             sym = Symbol(addr, given_name=name)
+            user_defined: Optional[bool] = None
 
             ignore_sym = False
             if line_ext:
@@ -241,6 +242,7 @@ def handle_sym_addrs(
                         else:
                             if attr_name == "defined":
                                 sym.defined = tf_val
+                                user_defined = tf_val
                                 continue
                             if attr_name == "extract":
                                 sym.extract = tf_val
@@ -284,7 +286,12 @@ def handle_sym_addrs(
                 continue
 
             if sym.absolute:
-                sym.defined = True
+                # Prioritize the user's option instead, in case they want this
+                # symbol to be emitted in the undefined_syms_auto file.
+                if user_defined is not None:
+                    sym.defined = user_defined
+                else:
+                    sym.defined = True
 
                 # Most attributes make no sense for a absolute symbol.
                 # For now just warn about these two.
