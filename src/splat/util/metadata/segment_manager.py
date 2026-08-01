@@ -1,4 +1,5 @@
-from typing import Callable, Dict, Optional, Set, Tuple, TYPE_CHECKING
+import dataclasses
+from typing import Callable, Dict, Optional, Set, Tuple, TYPE_CHECKING, Union
 
 from .segment_metadata import SegmentMetadata, SegmentKind
 from .parent_segment_info import ParentSegmentInfo
@@ -10,6 +11,7 @@ from .. import log, options
 # circular import
 if TYPE_CHECKING:
     from ...segtypes.segment import Segment
+    from ..external_segment import ExternalSegment
 
 
 class SegmentManager:
@@ -329,7 +331,7 @@ class SegmentManager:
         vram_start: int,
         vram_end: int,
         prioritized_segments: list[str],
-        segment,
+        segment: Optional["Segment"],
     ) -> SegmentMetadata:
         if self.global_rom_start is None or rom_start < self.global_rom_start:
             self.global_rom_start = rom_start
@@ -389,17 +391,14 @@ class SegmentManager:
     def _initialize_segments(
         self,
         all_segments: "list[Segment]",
+        external_segments: "list[ExternalSegment]",
     ) -> Tuple[Dict[str, SegmentMetadata], Set[str]]:
-        global_rom_start: Optional[int] = None
-        global_rom_end: Optional[int] = None
-        global_vram_start: Optional[int] = options.opts.global_vram_start
-        global_vram_end: Optional[int] = options.opts.global_vram_end
-        global_segment_largest_vram: Optional[Segment] = None
+        global_pack = AddressPack(
+            vram_start=options.opts.global_vram_start,
+            vram_end=options.opts.global_vram_end,
+        )
+        seen_global_pack = AddressPack()
 
-        seen_global_rom_start: Optional[int] = None
-        seen_global_rom_end: Optional[int] = None
-        seen_global_vram_start: Optional[int] = None
-        seen_global_vram_end: Optional[int] = None
         overlay_segments: list[SegmentMetadata] = []
 
         segments_by_name: Dict[str, SegmentMetadata] = {}
@@ -407,6 +406,10 @@ class SegmentManager:
 
         global_segments: list[Segment] = []
         global_segments_after_overlays: list[Segment] = []
+
+        external_segments_by_name: dict[str, ExternalSegment] = {
+            ext_seg.name: ext_seg for ext_seg in external_segments
+        }
 
         # Create all segments in the grouping
         for segment in all_segments:
@@ -418,6 +421,19 @@ class SegmentManager:
             ):
                 skipped_segments.add(segment.name)
                 continue
+
+            if len(external_segments) > 0:
+                # If the user opted in to declare segments in external_segments,
+                # then they must declare _EVERY_ segment that has rom and vram.
+                ext_seg = external_segments_by_name.get(segment.name)
+                if ext_seg is None:
+                    log.error(
+                        f"The segment '{segment.name}' is missing from the `external_segments` list."
+                    )
+                if not ext_seg.compare_to_segment_and_log(segment):
+                    # Everything listed on the external segment must match the
+                    # normal segment definition.
+                    log.error("Aborting due to the above errores")
 
             ram_id = segment.get_exclusive_ram_id()
             if ram_id is None and segment.special_vram_segment:
@@ -443,7 +459,6 @@ class SegmentManager:
                 )
                 segment.owned_metadata = seg_meta
                 overlay_segments.append(seg_meta)
-                segments_by_name[seg_meta.name] = seg_meta
             else:
                 # Global segment
 
@@ -457,88 +472,109 @@ class SegmentManager:
                     segment,
                 )
                 segment.owned_metadata = seg_meta
-                segments_by_name[seg_meta.name] = seg_meta
                 global_segments.append(segment)
 
-                if global_rom_start is None or segment.rom_start < global_rom_start:
-                    global_rom_start = segment.rom_start
+                global_pack.update(
+                    segment,
+                    overlay_segments=overlay_segments,
+                    global_segments_after_overlays=global_segments_after_overlays,
+                )
+                seen_global_pack.update(segment)
 
-                if global_rom_end is None or global_rom_end < segment.rom_end:
-                    global_rom_end = segment.rom_end
+            segments_by_name[seg_meta.name] = seg_meta
 
-                if global_vram_start is None or segment.vram_start < global_vram_start:
-                    global_vram_start = segment.vram_start
+        for ext_segment in external_segments:
+            # Create metadata for external segments.
+            # These only declare the segments from other binaries.
 
-                if global_vram_end is None:
-                    global_vram_end = segment.vram_end
-                    global_segment_largest_vram = segment
-                elif global_vram_end < segment.vram_end:
-                    global_vram_end = segment.vram_end
-                    global_segment_largest_vram = segment
+            if ext_segment.name in segments_by_name:
+                # The segments from the current binary should be listed as an
+                # external segment too, but we don't want to create a
+                # duplicated metadata for it.
+                continue
 
-                    if len(overlay_segments) > 0:
-                        # Global segment *after* overlay segments?
-                        global_segments_after_overlays.append(segment)
+            if ext_segment.is_global:
+                # Global segment
 
-                if (
-                    seen_global_rom_start is None
-                    or segment.rom_start < seen_global_rom_start
-                ):
-                    seen_global_rom_start = segment.rom_start
-                if seen_global_rom_end is None or seen_global_rom_end < segment.rom_end:
-                    seen_global_rom_end = segment.rom_end
+                seg_meta = self._add_global_segment(
+                    ext_segment.name,
+                    ext_segment.rom_start,
+                    ext_segment.rom_end,
+                    ext_segment.vram_start,
+                    ext_segment.vram_end,
+                    [],
+                    None,
+                )
 
-                if (
-                    seen_global_vram_start is None
-                    or segment.vram_start < seen_global_vram_start
-                ):
-                    seen_global_vram_start = segment.vram_start
-                if (
-                    seen_global_vram_end is None
-                    or seen_global_vram_end < segment.vram_end
-                ):
-                    seen_global_vram_end = segment.vram_end
+                global_pack.update(
+                    ext_segment,
+                    overlay_segments=overlay_segments,
+                    global_segments_after_overlays=global_segments_after_overlays,
+                )
+                seen_global_pack.update(ext_segment)
+            else:
+                # Overlay
+
+                if ext_segment.vram_start == ext_segment.vram_end:
+                    # Skip zero-sized segments.
+                    continue
+
+                ram_id = ext_segment.exclusive_ram_id or ext_segment.name
+                seg_meta = self._add_overlay_segment(
+                    ram_id,
+                    ext_segment.name,
+                    ext_segment.rom_start,
+                    ext_segment.rom_end,
+                    ext_segment.vram_start,
+                    ext_segment.vram_end,
+                    [],
+                    None,
+                )
+                overlay_segments.append(seg_meta)
+            segments_by_name[seg_meta.name] = seg_meta
 
         if (
-            global_vram_start is not None
-            and global_vram_end is not None
-            and global_rom_start is not None
-            and global_rom_end is not None
+            global_pack.vram_start is not None
+            and global_pack.vram_end is not None
+            and global_pack.rom_start is not None
+            and global_pack.rom_end is not None
         ):
             # Create extra global segments in case they are needed
             if (
-                seen_global_vram_start is not None
-                and seen_global_vram_end is not None
-                and seen_global_rom_start is not None
-                and seen_global_rom_end is not None
+                seen_global_pack.vram_start is not None
+                and seen_global_pack.vram_end is not None
+                and seen_global_pack.rom_start is not None
+                and seen_global_pack.rom_end is not None
             ):
                 # Account for options.opts.global_vram_start and options.opts.global_vram_end for PSX and PSP
-                if global_vram_start < seen_global_vram_start:
+                if global_pack.vram_start < seen_global_pack.vram_start:
                     rom_start = (
-                        seen_global_rom_start
-                        + global_vram_start
-                        - seen_global_vram_start
+                        seen_global_pack.rom_start
+                        + global_pack.vram_start
+                        - seen_global_pack.vram_start
                     )
                     seg_meta = self._add_global_segment(
                         "$global_left",
                         rom_start,
-                        seen_global_rom_start,
-                        global_vram_start,
-                        seen_global_vram_start,
+                        seen_global_pack.rom_start,
+                        global_pack.vram_start,
+                        seen_global_pack.vram_start,
                         [],
                         None,
                     )
                     segments_by_name[seg_meta.name] = seg_meta
-                if global_vram_end > seen_global_vram_end:
+                if global_pack.vram_end > seen_global_pack.vram_end:
                     rom_end = (
-                        seen_global_rom_end + global_vram_end - seen_global_vram_end
+                        seen_global_pack.rom_end
+                        + global_pack.vram_end
+                        - seen_global_pack.vram_end
                     )
                     seg_meta = self._add_global_segment(
                         "$global_right",
-                        seen_global_rom_end,
+                        seen_global_pack.rom_end,
                         rom_end,
-                        seen_global_vram_end,
-                        global_vram_end,
+                        seen_global_pack.vram_end,
+                        global_pack.vram_end,
                         [],
                         None,
                     )
@@ -553,11 +589,11 @@ class SegmentManager:
                     f"{ovl_segment.vram_start:08X} {ovl_segment.vram_end:08X}"
                 )
                 if (
-                    ovl_segment.vram_end > global_vram_start
-                    and global_vram_end > ovl_segment.vram_start
+                    ovl_segment.vram_end > global_pack.vram_start
+                    and global_pack.vram_end > ovl_segment.vram_start
                 ):
                     log.write(
-                        f"Error: Overlay segment {ovl_segment.name} with vram range ([0x{ovl_segment.vram_start:08X}, 0x{ovl_segment.vram_end:08X}]) of the non-global segment at rom address 0x{ovl_segment.rom_start:X} overlaps with the global vram range ([0x{global_vram_start:08X}, 0x{global_vram_end:08X}])",
+                        f"Error: Overlay segment {ovl_segment.name} with vram range ([0x{ovl_segment.vram_start:08X}, 0x{ovl_segment.vram_end:08X}]) of the non-global segment at rom address 0x{ovl_segment.rom_start:X} overlaps with the global vram range ([0x{global_pack.vram_start:08X}, 0x{global_pack.vram_end:08X}])",
                         status="warn",
                     )
                     overlaps_found = True
@@ -576,9 +612,9 @@ class SegmentManager:
                             f"    '{seg.name}', rom: 0x{seg.rom_start:06X}, vram: 0x{seg.vram_start:08X}"
                         )
 
-                if global_segment_largest_vram is not None:
+                if global_pack.segment_largest_vram is not None:
                     log.write(
-                        f"The global segment with the largest vram seen is {global_segment_largest_vram}. Rom: 0x{global_segment_largest_vram.rom_start:X}, Vram: 0x{global_segment_largest_vram.vram_start:08X}"
+                        f"The global segment with the largest vram seen is {global_pack.segment_largest_vram}. Rom: 0x{global_pack.segment_largest_vram.rom_start:X}, Vram: 0x{global_pack.segment_largest_vram.vram_start:08X}"
                     )
 
                 if len(global_segments_after_overlays) > 0:
@@ -611,19 +647,21 @@ class SegmentManager:
                 continue
 
             # Then look up for explicit associated segments first.
-            if sym.segment is not None:
-                meta = segments_by_name.get(sym.segment.name)
+            # Either kind of segment is fine.
+            seg = sym.segment or sym.external_segment
+            if seg is not None:
+                meta = segments_by_name.get(seg.name)
                 if meta is not None:
                     meta.add_user_symbol(sym)
                     continue
-                elif sym.segment.name in skipped_segments:
+                elif seg.name in skipped_segments:
                     log.write(
-                        f"Error: Unable to associated '{sym}' to segment '{sym.segment}' because that segment is missing a vram/rom address.",
+                        f"Error: Unable to associated '{sym}' to segment '{seg}' because that segment is missing a vram/rom address.",
                         status="warn",
                     )
                 else:
                     log.write(
-                        f"Warning (Maybe bug): User-declared symbol '{sym}' is unexpectely associated to segment '{sym.segment}'.\n"
+                        f"Warning (Maybe bug): User-declared symbol '{sym}' is unexpectely associated to non existing segment '{seg}'.\n"
                         "  This is an issue because unexpected segments should have been filtered on a previous step.\n"
                         "  Please report.",
                         status="warn",
@@ -673,12 +711,79 @@ class SegmentManager:
         self.all_symbols = all_symbols
 
 
+@dataclasses.dataclass
+class AddressPack:
+    """
+    Helper class to help track the boundaries of global segments.
+    """
+
+    rom_start: Optional[int] = None
+    rom_end: Optional[int] = None
+    vram_start: Optional[int] = None
+    vram_end: Optional[int] = None
+    segment_largest_vram: Optional["Segment"] = None
+
+    def update(
+        self,
+        segment: Union["Segment", "ExternalSegment"],
+        *,
+        overlay_segments: Optional[list[SegmentMetadata]] = None,
+        global_segments_after_overlays: Optional[list["Segment"]] = None,
+    ) -> None:
+        from ...segtypes.segment import Segment
+
+        if (
+            segment.rom_start is None
+            or segment.rom_end is None
+            or segment.vram_start is None
+            or segment.vram_end is None
+        ):
+            return
+
+        if self.rom_start is None or segment.rom_start < self.rom_start:
+            self.rom_start = segment.rom_start
+
+        if self.rom_end is None or self.rom_end < segment.rom_end:
+            self.rom_end = segment.rom_end
+
+        if self.vram_start is None or segment.vram_start < self.vram_start:
+            self.vram_start = segment.vram_start
+
+        largest = False
+        largest_override = False
+        if self.vram_end is None:
+            self.vram_end = segment.vram_end
+            largest = True
+        elif self.vram_end < segment.vram_end:
+            self.vram_end = segment.vram_end
+            largest = True
+            largest_override = True
+
+        if isinstance(segment, Segment):
+            if largest:
+                self.segment_largest_vram = segment
+                if largest_override:
+                    if (
+                        overlay_segments is not None
+                        and global_segments_after_overlays is not None
+                    ):
+                        if len(overlay_segments) > 0:
+                            # Global segment *after* overlay segments?
+                            global_segments_after_overlays.append(segment)
+
+
 manager = SegmentManager()
 
 
-def initialize(all_segments: "list[Segment]", all_symbols: "list[Symbol]") -> None:
+def initialize(
+    all_segments: "list[Segment]",
+    all_symbols: "list[Symbol]",
+    external_segments: "Optional[list[ExternalSegment]]" = None,
+) -> None:
     global manager
-    segments_by_name, skipped_segments = manager._initialize_segments(all_segments)
+    segments_by_name, skipped_segments = manager._initialize_segments(
+        all_segments, external_segments or []
+    )
     manager._initialize_symbols(all_symbols, segments_by_name, skipped_segments)
 
 

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..segtypes.segment import Segment
     from .metadata.segment_manager import SegmentManager
     from ..util.metadata.segment_metadata import SegmentMetadata
+    from .external_segment import ExternalSegment
 
 from . import log, options, progress_bar
 
@@ -74,7 +75,10 @@ def handle_sym_addrs(
     path: Path,
     sym_addrs_lines: List[str],
     all_segments: "List[Segment]",
+    external_segments: "Optional[list[ExternalSegment]]" = None,
 ):
+    external_segments = external_segments or []
+
     def get_seg_for_name(name: str) -> Optional["Segment"]:
         for segment in all_segments:
             if segment.name == name:
@@ -84,6 +88,12 @@ def handle_sym_addrs(
     def get_seg_for_rom(rom: int) -> Optional["Segment"]:
         for segment in all_segments:
             if segment.contains_rom(rom):
+                return segment
+        return None
+
+    def get_external_seg_for_name(name: str) -> Optional["ExternalSegment"]:
+        for segment in external_segments:
+            if segment.name == name:
                 return segment
         return None
 
@@ -172,14 +182,15 @@ def handle_sym_addrs(
                                 sym.rom = rom_addr
                                 continue
                             if attr_name == "segment":
-                                seg = get_seg_for_name(attr_val)
-                                if seg is None:
+                                # Add segment to symbol
+                                sym.segment = get_seg_for_name(attr_val)
+                                sym.external_segment = get_external_seg_for_name(
+                                    attr_val
+                                )
+                                if sym.segment is None and sym.external_segment is None:
                                     log.parsing_error_preamble(path, line_num, line)
                                     log.write(f"Cannot find segment '{attr_val}'")
                                     log.error("")
-                                else:
-                                    # Add segment to symbol
-                                    sym.segment = seg
                                 continue
                             if attr_name == "name_end":
                                 sym.given_name_end = attr_val
@@ -301,7 +312,11 @@ def handle_sym_addrs(
                         status="warn",
                     )
             else:
-                if sym.segment is None and sym.rom is not None:
+                if (
+                    sym.segment is None
+                    and sym.external_segment is None
+                    and sym.rom is not None
+                ):
                     sym.segment = get_seg_for_rom(sym.rom)
 
                 if sym.segment:
@@ -374,7 +389,10 @@ def handle_sym_addrs(
             add_symbol(sym, all_symbols_dict)
 
 
-def initialize(all_segments: "List[Segment]"):
+def initialize(
+    all_segments: "List[Segment]",
+    external_segments: "Optional[list[ExternalSegment]]" = None,
+) -> None:
     global all_symbols
 
     all_symbols = []
@@ -384,7 +402,7 @@ def initialize(all_segments: "List[Segment]"):
         if path.exists():
             with open(path, encoding="utf-8") as f:
                 sym_addrs_lines = f.readlines()
-                handle_sym_addrs(path, sym_addrs_lines, all_segments)
+                handle_sym_addrs(path, sym_addrs_lines, all_segments, external_segments)
 
 
 def initialize_spim_context(manager: "SegmentManager") -> None:
@@ -601,6 +619,7 @@ class Symbol:
     type: Optional[str] = None
     given_size: Optional[int] = None
     segment: Optional["Segment"] = None
+    external_segment: Optional["ExternalSegment"] = None
 
     defined: bool = False
     referenced: bool = False

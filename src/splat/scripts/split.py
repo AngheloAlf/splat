@@ -30,6 +30,7 @@ from ..segtypes.linker_entry import (
 from ..segtypes.segment import Segment
 from ..segtypes.common.group import CommonSegGroup
 from ..util import conf, log, options, palettes, symbols, relocs
+from ..util.external_segment import ExternalSegment
 
 linker_writer: LinkerWriter
 config: Dict[str, Any]
@@ -175,6 +176,46 @@ def initialize_segments(config_segments: Union[dict, list]) -> List[Segment]:
     return ret
 
 
+def initialize_external_segments(
+    config_external_segments: Optional[list[dict[str, Any]]],
+) -> list[ExternalSegment]:
+    """
+    Read external_segments from yaml.
+    If it is missing returns an empty list.
+    """
+    if config_external_segments is None:
+        return []
+
+    segment_names = set()
+    duplicated_names = set()
+    global_count = 0
+
+    ret = []
+    for ext_yaml in config_external_segments:
+        ext = ExternalSegment.from_yaml(ext_yaml)
+
+        if ext.name in segment_names:
+            duplicated_names.add(ext.name)
+        segment_names.add(ext.name)
+
+        if ext.is_global:
+            global_count += 1
+
+        ret.append(ext)
+
+    if duplicated_names:
+        log.error(
+            f"The following external segments do not have an unique name: {', '.join(duplicated_names)}"
+        )
+
+    if global_count == 0:
+        log.error(
+            "No global external segment found. You need to mark at least one external segment as `is_global: True`"
+        )
+
+    return ret
+
+
 def brief_seg_name(seg: Segment, limit: int, ellipsis="…") -> str:
     s = seg.name.strip()
     if len(s) > limit:
@@ -273,12 +314,17 @@ def initialize_platform(rom_bytes: bytes):
     return platform_module
 
 
-def initialize_all_symbols(all_segments: List[Segment]):
+def initialize_all_symbols(
+    all_segments: List[Segment],
+    external_segments: Optional[list[ExternalSegment]] = None,
+):
     # Load and process symbols
-    symbols.initialize(all_segments)
+    symbols.initialize(all_segments, external_segments)
     relocs.initialize()
 
-    metadata.segment_manager.initialize(all_segments, symbols.all_symbols)
+    metadata.segment_manager.initialize(
+        all_segments, symbols.all_symbols, external_segments
+    )
 
     if options.opts.is_mode_active("code"):
         symbols.initialize_spim_context(metadata.segment_manager.manager)
@@ -592,8 +638,9 @@ def main(
 
     # Initialize segments
     all_segments = initialize_segments(config["segments"])
+    external_segments = initialize_external_segments(config.get("external_segments"))
 
-    initialize_all_symbols(all_segments)
+    initialize_all_symbols(all_segments, external_segments)
 
     # Resolve raster/palette siblings
     if options.opts.is_mode_active("img"):
