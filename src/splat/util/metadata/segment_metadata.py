@@ -224,9 +224,21 @@ class SegmentMetadata:
                 else:
                     existing_size = f"0x{existing_sym.given_size:X}"
                 size = f"0x{sym.given_size:X}" if sym.given_size is not None else "None"
+
+                if sym.external_segment is not None:
+                    segment_str = f"external segment '{sym.external_segment}'"
+                else:
+                    segment_str = f"segment '{sym.segment}'"
+                if existing_sym.external_segment is not None:
+                    external_segment_str = (
+                        f"external segment '{existing_sym.external_segment}'"
+                    )
+                else:
+                    external_segment_str = f"segment '{existing_sym.segment}'"
+
                 msg = (
-                    f"The user declared symbol '{sym.name}' (Vram 0x{sym.vram_start:08X}, size {size}, segment '{sym.segment}')\n"
-                    f"  overlaps with the previously defined '{existing_sym.name}' (Vram 0x{existing_sym.vram_start:08X}, size {existing_size}, segment '{existing_sym.segment}')"
+                    f"The user declared symbol '{sym.name}' (Vram 0x{sym.vram_start:08X}, size {size}, {segment_str})\n"
+                    f"  overlaps with the previously defined '{existing_sym.name}' (Vram 0x{existing_sym.vram_start:08X}, size {existing_size}, {external_segment_str})"
                 )
                 # TODO: Change this into a hard error.
                 if False:

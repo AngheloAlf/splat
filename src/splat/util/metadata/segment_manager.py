@@ -34,13 +34,22 @@ class SegmentManager:
         )
 
         # Globally visible segments.
-        # They have no address overlapping issues with other segments.
+        # This kind have no address overlapping issues with any other segment.
         self.global_segments: list[SegmentMetadata] = []
 
         # Overlays.
-        # They have address overlapping between them.
+        # This kind may have addresses overlapping between them.
         self.overlay_segments: dict[str, OverlayMetadata] = {}
         """key: exclusive_ram_id"""
+
+        # Externally declared segments that were discarded.
+        # Discarded because they overlap with the current global segment, this
+        # happens because the current global segment corresponds to a PSX/PS2
+        # binary overlay, so the other external segments may overlap with this.
+        # These are discarded, so the symbols nor segments will be used when
+        # looking for symbol references or creating automatically generated
+        # symbols.
+        self.discarded_external_segments: list[SegmentMetadata] = []
 
         # Dumpster for failed segment lookups.
         self.unknown_segment: SegmentMetadata = SegmentMetadata(
@@ -388,6 +397,24 @@ class SegmentManager:
             segment,
         )
 
+    def _add_discarded_external_segment(
+        self,
+        external_segment: "ExternalSegment",
+    ) -> SegmentMetadata:
+        seg_meta = SegmentMetadata(
+            SegmentKind.Global if external_segment.is_global else SegmentKind.Overlay,
+            external_segment.name,
+            external_segment.rom_start,
+            external_segment.rom_end,
+            external_segment.vram_start,
+            external_segment.vram_end,
+            [],
+            None,
+            None,
+        )
+        self.discarded_external_segments.append(seg_meta)
+        return seg_meta
+
     def _initialize_segments(
         self,
         all_segments: "list[Segment]",
@@ -519,18 +546,33 @@ class SegmentManager:
                     # Skip zero-sized segments.
                     continue
 
-                ram_id = ext_segment.exclusive_ram_id or ext_segment.name
-                seg_meta = self._add_overlay_segment(
-                    ram_id,
-                    ext_segment.name,
-                    ext_segment.rom_start,
-                    ext_segment.rom_end,
+                if global_pack.overlaps_vram(
                     ext_segment.vram_start,
                     ext_segment.vram_end,
-                    [],
-                    None,
-                )
-                overlay_segments.append(seg_meta)
+                ):
+                    # This external segment overlaps with the current global
+                    # segment very likely because the current binary being
+                    # splitted is a PSX/PS2 standalone overlay binary.
+                    # There's no point on tracking this segment when trying to
+                    # look for address references or other stuff, so we just
+                    # discard it and do nothing with it.
+                    # We still need to create it and know about it existence in
+                    # case the user declared a symbol referencing this segment
+                    # in the symbol_addrs file.
+                    seg_meta = self._add_discarded_external_segment(ext_segment)
+                else:
+                    ram_id = ext_segment.exclusive_ram_id or ext_segment.name
+                    seg_meta = self._add_overlay_segment(
+                        ram_id,
+                        ext_segment.name,
+                        ext_segment.rom_start,
+                        ext_segment.rom_end,
+                        ext_segment.vram_start,
+                        ext_segment.vram_end,
+                        [],
+                        None,
+                    )
+                    overlay_segments.append(seg_meta)
             segments_by_name[seg_meta.name] = seg_meta
 
         if (
@@ -588,9 +630,9 @@ class SegmentManager:
                 assert ovl_segment.vram_start <= ovl_segment.vram_end, (
                     f"{ovl_segment.vram_start:08X} {ovl_segment.vram_end:08X}"
                 )
-                if (
-                    ovl_segment.vram_end > global_pack.vram_start
-                    and global_pack.vram_end > ovl_segment.vram_start
+                if global_pack.overlaps_vram(
+                    ovl_segment.vram_start,
+                    ovl_segment.vram_end,
                 ):
                     log.write(
                         f"Error: Overlay segment {ovl_segment.name} with vram range ([0x{ovl_segment.vram_start:08X}, 0x{ovl_segment.vram_end:08X}]) of the non-global segment at rom address 0x{ovl_segment.rom_start:X} overlaps with the global vram range ([0x{global_pack.vram_start:08X}, 0x{global_pack.vram_end:08X}])",
@@ -661,7 +703,7 @@ class SegmentManager:
                     )
                 else:
                     log.write(
-                        f"Warning (Maybe bug): User-declared symbol '{sym}' is unexpectely associated to non existing segment '{seg}'.\n"
+                        f"Warning (Maybe bug): User-declared symbol '{sym}' is associated to non existing segment '{seg}'.\n"
                         "  This is an issue because unexpected segments should have been filtered on a previous step.\n"
                         "  Please report.",
                         status="warn",
@@ -770,6 +812,13 @@ class AddressPack:
                         if len(overlay_segments) > 0:
                             # Global segment *after* overlay segments?
                             global_segments_after_overlays.append(segment)
+
+    def overlaps_vram(self, vram_start: int, vram_end: int) -> bool:
+        if self.vram_start is None or self.vram_end is None:
+            return False
+        if vram_end > self.vram_start and self.vram_end > vram_start:
+            return True
+        return False
 
 
 manager = SegmentManager()
