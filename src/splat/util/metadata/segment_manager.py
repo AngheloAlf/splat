@@ -434,10 +434,6 @@ class SegmentManager:
         global_segments: list[Segment] = []
         global_segments_after_overlays: list[Segment] = []
 
-        external_segments_by_name: dict[str, ExternalSegment] = {
-            ext_seg.name: ext_seg for ext_seg in external_segments
-        }
-
         # Create all segments in the grouping
         for segment in all_segments:
             if (
@@ -448,19 +444,6 @@ class SegmentManager:
             ):
                 skipped_segments.add(segment.name)
                 continue
-
-            if len(external_segments) > 0:
-                # If the user opted in to declare segments in external_segments,
-                # then they must declare _EVERY_ segment that has rom and vram.
-                ext_seg = external_segments_by_name.get(segment.name)
-                if ext_seg is None:
-                    log.error(
-                        f"The segment '{segment.name}' is missing from the `external_segments` list."
-                    )
-                if not ext_seg.compare_to_segment_and_log(segment):
-                    # Everything listed on the external segment must match the
-                    # normal segment definition.
-                    log.error("Aborting due to the above errores")
 
             ram_id = segment.get_exclusive_ram_id()
             if ram_id is None and segment.special_vram_segment:
@@ -683,14 +666,27 @@ class SegmentManager:
         # Pass every symbol to its corresponding segment.
         lost_symbols = []
         for sym in all_symbols:
-            # User segment takes priority over everything
+            # Absolute segment takes priority over everything
             if sym.absolute:
                 self.absolute_segment.add_user_symbol(sym)
                 continue
 
-            # Then look up for explicit associated segments first.
-            # Either kind of segment is fine.
-            seg = sym.segment or sym.external_segment
+            # If the symbol is associated to an external segment then count it
+            # as an absolute symbol to ensure global segments can reference it.
+            ext_seg = sym.external_segment
+            if ext_seg is not None:
+                # Since we are flattening symbols from multiple external
+                # segments into the absolute segment then it is likely for them
+                # to overlap, in that case keep the first seen one and drop the
+                # rest.
+                self.absolute_segment.add_user_symbol(sym, _ensure_no_overlap=False)
+                meta = segments_by_name.get(ext_seg.name)
+                if meta is not None:
+                    meta.add_user_symbol(sym)
+                continue
+
+            # Then look up for explicit associated segments.
+            seg = sym.segment
             if seg is not None:
                 meta = segments_by_name.get(seg.name)
                 if meta is not None:

@@ -194,7 +194,7 @@ class SegmentMetadata:
 
         return symbol
 
-    def add_user_symbol(self, sym: Symbol) -> None:
+    def add_user_symbol(self, sym: Symbol, *, _ensure_no_overlap: bool=True) -> None:
         """
         Add an user declared symbol.
         """
@@ -209,6 +209,11 @@ class SegmentMetadata:
 
         existing_sym = self.find_symbol(sym.vram_start, True)
         if existing_sym is not None:
+            if not _ensure_no_overlap:
+                # If this symbol would overlap with a previously added symbol,
+                # just drop it and keep the previous one.
+                return
+
             if existing_sym is sym:
                 # there's a bug somewhere...
                 pass
