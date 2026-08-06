@@ -12,10 +12,16 @@ from . import ia4 as ia4
 from . import ia8 as ia8
 from . import img as img
 from . import ipl3 as ipl3
-from . import mio0 as mio0
 from . import palette as palette
 from . import rgba16 as rgba16
 from . import rgba32 as rgba32
 from . import rsp as rsp
 from . import vtx as vtx
-from . import yay0 as yay0
+
+# Segments that require optional dependencies
+try:
+    # mips-compression
+    from . import mio0 as mio0
+    from . import yay0 as yay0
+except ImportError:
+    pass

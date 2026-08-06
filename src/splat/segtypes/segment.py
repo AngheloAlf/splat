@@ -96,11 +96,17 @@ def empty_statistics() -> SegmentStatistics:
     return collections.defaultdict(lambda: SegmentStatisticsInfo(size=0, count=0))
 
 
+_segments_from_optional_dependencies: dict[str, str] = {
+    "yay0": "mips-compression",
+    "mio0": "mips-compression",
+}
+
+
 class Segment:
     require_unique_name = True
 
     @staticmethod
-    def get_class_for_type(seg_type) -> Type["Segment"]:
+    def get_class_for_type(seg_type: str) -> Type["Segment"]:
         # so .data loads SegData, for example
         seg_type = seg_type.removeprefix(".")
 
@@ -115,14 +121,21 @@ class Segment:
                 segment_class = Segment.get_extension_segment_class(seg_type)
 
         if segment_class is None:
+            dependency_group = _segments_from_optional_dependencies.get(seg_type)
+            if dependency_group is not None:
+                log.error(
+                    f"Could not load segment type '{seg_type}'.\n"
+                    f"This segment is available by installing the optional dependency group `splat64[{dependency_group}]`"
+                )
             log.error(
-                f"could not load segment type '{seg_type}'\n(hint: confirm your extension directory is configured correctly)"
+                f"Could not load segment type '{seg_type}'\n"
+                "(hint: confirm your extension directory is configured correctly)"
             )
 
         return segment_class
 
     @staticmethod
-    def get_base_segment_class(seg_type):
+    def get_base_segment_class(seg_type: str) -> Optional[Type["Segment"]]:
         platform = options.opts.platform
         is_platform_seg = False
 
@@ -144,7 +157,7 @@ class Segment:
         return getattr(segmodule, f"{seg_prefix}Seg{seg_type.capitalize()}")
 
     @staticmethod
-    def get_extension_segment_class(seg_type):
+    def get_extension_segment_class(seg_type: str) -> Optional[Type["Segment"]]:
         platform = options.opts.platform
 
         ext_path = options.opts.extensions_path
@@ -167,7 +180,8 @@ class Segment:
             return None
 
         return getattr(
-            ext_mod, f"{platform.upper()}Seg{seg_type[0].upper()}{seg_type[1:]}"
+            ext_mod,
+            f"{platform.upper()}Seg{seg_type[0].upper()}{seg_type[1:]}",
         )
 
     @staticmethod
