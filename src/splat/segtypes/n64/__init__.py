@@ -20,7 +20,7 @@ from . import vtx as vtx
 
 # Segments that require optional dependencies
 try:
-    # mips-compression
+    # compression
     from . import mio0 as mio0
     from . import yay0 as yay0
 except ImportError:

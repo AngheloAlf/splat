@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mips = [
-    "splat64[mips-min,mips-compression]",
+    "splat64[mips-min,compression]",
 ]
 
 mips-min = [
@@ -29,7 +29,7 @@ mips-min = [
     "pygfxd>=1.0.5",
     "n64img>=0.3.3",
 ]
-mips-compression = [
+compression = [
     "splat64[mips-min]",
     "crunch64>=0.5.1,<1.0.0",
 ]

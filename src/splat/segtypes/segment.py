@@ -97,8 +97,8 @@ def empty_statistics() -> SegmentStatistics:
 
 
 _segments_from_optional_dependencies: dict[str, str] = {
-    "yay0": "mips-compression",
-    "mio0": "mips-compression",
+    "yay0": "compression",
+    "mio0": "compression",
 }
 
 
