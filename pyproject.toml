@@ -20,12 +20,15 @@ dependencies = [
 
 [project.optional-dependencies]
 mips = [
-    "splat64[mips-min,compression]",
+    "splat64[mips-min,assets-n64,compression]",
 ]
 
 mips-min = [
     "spimdisasm>=1.42.1,<2.0.0", # This value should be keep in sync with the version listed on disassembler/spimdisasm_disassembler.py
     "rabbitizer>=1.12.0,<2.0.0",
+]
+assets-n64 = [
+    "splat64[mips-min]",
     "pygfxd>=1.0.5",
     "n64img>=0.3.3",
 ]

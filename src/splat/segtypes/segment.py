@@ -96,9 +96,26 @@ def empty_statistics() -> SegmentStatistics:
     return collections.defaultdict(lambda: SegmentStatisticsInfo(size=0, count=0))
 
 
+# Mapping for segments that are enabled only when the corresponding dependency
+# is available at runtime.
+# The value corresponds to the dependency group listed on the pyproject.toml
+# file installs the required Python dependencies for the given segment.
 _segments_from_optional_dependencies: dict[str, str] = {
     "yay0": "compression",
     "mio0": "compression",
+    "gfx": "assets-n64",
+    "ci": "assets-n64",
+    "ci4": "assets-n64",
+    "ci8": "assets-n64",
+    "i1": "assets-n64",
+    "i4": "assets-n64",
+    "i8": "assets-n64",
+    "ia16": "assets-n64",
+    "ia4": "assets-n64",
+    "ia8": "assets-n64",
+    "img": "assets-n64",
+    "rgba16": "assets-n64",
+    "rgba32": "assets-n64",
 }
 
 
